@@ -1,0 +1,15 @@
+Basset is an object oriented framework for Perl. It's my baby that I've (that's me, Jim Thomason - jim@bassetsoftware.com) have been developing for a little more than two years now, but it has roots going back much farther than that. Take a look at Mail::Bulkmail 1.00 from August, 1999. You'll see the start of Basset back then.
+
+About last year (April-ish), I open sourced the framework, and now I'm finally getting off of my butt and releasing it to CPAN.
+
+So why another new framework? Well, first of all it's not all that new. You are getting a reasonably hardened piece of software that has been around and developed for a while.
+
+But the main reason is that I just don't like how a lot of the stuff on CPAN works together. One author writes his persistence layer with exceptions, and another writes his object framework with error codes, and another has an observer implementation, and nothing ever quite plays right together. Sure, it'll mostly work, once you hack it up a bit, but you tend to end up with comments sprinkled through your code like, "catch the exception here, since we can't use error codes, since Foo::Bar::Baz doesn't work with them." The miracle of open source software making your life easier crashes down.
+
+Basset is designed to tie it all together. Things are implemented in a very specific, very consistent fashion, but you're not tied to any of it. You want to inherit from a different root class? You can inject one. You want to use a different persistence layer instead of the built in one? You can change it. You want to use a different templating engine? Go right ahead. You may lose some of the consistency that I feel is so valuable, but I'm not going to stop you. Basset is a framework framework - you follow the rules and you can tie together everything in your system very easily.
+
+Why's it called Basset? Well, I figure if there can be a framework out there called Maypole, I can call mine Basset. It's somewhat adequate - basset hounds are loyal, trustworthy, play well with others, and easy to get along with. Noble qualities in software. Mainly I just like basset hounds.
+
+The minimal configuration file is included (Basset/Object/basset.conf), you'll need to place it in the location specified in Basset::Object::Conf (/etc/basset.conf by default, or just leave it in Basset/Object), and then you'll be ready to go. Naturally, you can move the conf file wherever you'd like, just update the pointer there.
+
+Questions? More information at http://www.bassetsoftware.com, email to jim@bassetsoftware.com, and I've also set up a mailing list at perl_basset@yahoogroups.com for more general user questions. I'll probably post tidbits and tricks from time to time.
