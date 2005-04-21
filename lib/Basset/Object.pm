@@ -1,6 +1,6 @@
 package Basset::Object;
 
-#Basset::Object Copyright and (c) 1999, 2000, 2002, 2003, 2004 James A Thomason III
+#Basset::Object Copyright and (c) 1999, 2000, 2002, 2003, 2004, 2005 James A Thomason III
 #Basset::Object is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -11,9 +11,11 @@ Basset::Object - used to create objects
 
 =head1 AUTHOR
 
-Jim Thomason, jim@jimandkoka.com
+Jim Thomason, jim@bassetsoftware.com
 
 =head1 DESCRIPTION
+
+More information at http://www.bassetsoftware.com/
 
 This is my ultimate object creation toolset to date. It has roots in Mail::Bulkmail, Text::Flowchart, and the
 unreleased abstract object constructors that I've tooled around with in the past.
@@ -34,9 +36,29 @@ sub _conf_class {return 'Basset::Object::Conf'};
 BEGIN {eval 'use ' . _conf_class()};
 
 use Data::Dumper ();
+use Carp;
+
+use Basset::Container::Hash;
 
 use strict;
 use warnings;
+
+our %imported = ();
+
+sub import {
+	my $class = shift;
+	my $conf = $class->conf;
+	my $myconfig = $conf->{$class};
+
+	return if $imported{$class}++;
+
+	foreach my $method (keys %$myconfig) {
+		if ($class->can($method)) {
+			$class->$method($myconfig->{$method});
+		}
+	}
+
+}
 
 =pod
 
@@ -308,27 +330,16 @@ sub add_attr {
 	my @static_args	= @_;
 
 	if (ref $method){
-		($method, $accessor) = @$method;
+		($method, $accessor, my $internal_key) = @$method;
+		$internal_key ||= $method;
+		my $internal_method = $accessor eq '_accessor' ? $method : $pkg->privatize($method);
 
-		my $internal_method = $pkg->privatize($method);
-		$pkg->add_attr($internal_method)
+		*{$pkg . "::$internal_method"}  = sub {shift->_accessor($internal_key, @_)}
 			unless *{$pkg . "::$internal_method"}{'CODE'};
 		*{$pkg . "::$method"}  = sub {shift->$accessor($internal_method, @static_args, @_)}
-			unless *{$pkg . "::$method"}{'CODE'};
+			unless *{$pkg . "::$method"}{'CODE'} || $accessor eq '_accessor';
 	}
 	else {
-
-		#inline for raw power!
-		#*{$pkg . "::$method"}  = sub {
-		#	my $self = shift;
-		#	my $prop = $method;
-		#	
-		#	return $self->error("Not a class attribute", "BO-08") unless ref $self;
-		#
-		#	$self->{$prop} = shift if @_;
-		#
-		#	return $self->{$prop};
-		#} unless *{$pkg . "::$method"}{'CODE'};
 
 		*{$pkg . "::$method"}  = sub {shift->$accessor($method, @static_args, @_)}
 			unless *{$pkg . "::$method"}{'CODE'};
@@ -471,13 +482,12 @@ sub add_class_attr {
 
 	my $conf = $pkg->conf or die "Conf file error : could not read conf file";
 
-	if (exists $conf->{$pkg}->{$method}){
-		$pkg->$method($conf->{$pkg}->{$method});
-	}
-
 	if (@_){
 		$pkg->$method(@_);
-	};
+	}
+	elsif (exists $conf->{$pkg}->{$method}){
+		$pkg->$method($conf->{$pkg}->{$method});
+	}
 
 	return $method;
 };
@@ -552,9 +562,12 @@ There is a *slight* bit of additional processing required for trickled accessors
 
 trickled class attributes are automatically initialized to any values in the conf file upon adding, if present.
 
-Please note that references cannot be properly trickled, by their very nature. If you want to add
-in a trickled attribute that contains a reference, you'll need to manage copying and duplicating the
-reference yourself. Naturally, this requires only accessing the attribute via a wrapper method. 
+References are a special case. If you add a hashref, that hashref will automatically be tied to a Basset::Container::Hash.
+Do not do this tying yourself, since bad things would occur. Once tied to Basset::Container::Hash, the hashref is now
+effectively layered so that subclasses may directly add to the hash without affecting parent values. Subclasses may not delete
+keys from the hash, only delete values they have added. Arrays are not tied.
+
+Sometimes, you may be required to access the attribute via a wrapper method. 
 For example:
 
  sub wrapper {
@@ -674,17 +687,31 @@ sub add_trickle_class_attr {
 
 		my $class = shift->pkg;
 
-		unless ($class->populated_trickle_parents->{$class}) {
-			$class->populate_trickle_parents($method);
-			return $class->$method(@_);
-		};
-
 		if (@_) {
 			if ($class ne $internalpkg) {
 				$class->add_trickle_class_attr($method);
-				return $class->$method(@_);
+				my $val = shift;
+
+				if (ref $val eq 'HASH' && ref $attr eq 'HASH') {
+					#the tie blows away the values, so we need to keep a copy.
+					my %tmp;
+					@tmp{keys %$val} = values %$val;
+					#print "FAKE HASH SET HERE ($class, $method, $internalpkg)\n";
+					tie %$val, 'Basset::Container::Hash', $attr;
+					$class->add_trickle_class_attr($method);
+					@$val{keys %tmp} = values %tmp;
+				}
+
+				return $class->$method($val, @_);
 			}
 			$attr = shift;
+		}
+
+		if (ref $attr eq 'HASH' && $class ne $internalpkg) {
+			#print "FAKE HASH HERE SOMEHOW! ($class, $method, $internalpkg)\n";
+			tie my %empty, 'Basset::Container::Hash', $attr;
+			$class->add_trickle_class_attr($method, \%empty);
+			return $class->$method();
 		}
 
 		return $attr;
@@ -695,127 +722,12 @@ sub add_trickle_class_attr {
 	if (@_) {
 		$internalpkg->$method(@_);
 	} elsif (defined (my $confval = $conf->{$internalpkg}->{$method})) {
-
-		my @path = @{$internalpkg->isa_path};
-
-		pop @path;	#the internalpkg
-		if (my $parent = pop @path) {
-
-			if ($parent->can($method) && (my $superval = $parent->$method())) {
-
-				if (ref $superval) {
-
-					{
-						my $superdump = $internalpkg->dump($superval);
-						$superdump =~ /^(\$\w+)/;
-						local $@ = undef;
-						$superval = eval qq{
-							my $1;
-							eval \$superdump;
-						};
-					}
-					if (ref $confval eq 'ARRAY') {
-						push @$superval, @$confval;
-						$confval = $superval;
-					} elsif (ref $confval eq 'HASH') {
-						@$superval{keys %$confval} = values %$confval;
-						$confval = $superval;
-					}
-				}	#end if ref superval
-			}	#end if superval
-		} #end if parent
-
 		$internalpkg->$method($confval);
 	}
 
 	return $method;
 
 }
-
-=pod
-
-=item populate_trickle_parents
-
-This method should really only be used internally. Given a method, this method looks through the conf file and creates
-trickle class methods for all parent classes (if they have not yet been created) as well as the current class. That way,
-we are guaranteed to call the proper super class trickling attribute.
-
-=cut
-
-sub populate_trickle_parents {
-	my $class = shift;
-	my $method = shift or return $class->error("Cannot populate trickle parents w/o method", "BO-30");
-
-	my $conf = $class->conf;
-
-	my @parents = @{$class->isa_path()};
-
-	my $populated_trickle_parents = $class->populated_trickle_parents;
-
-	foreach my $parent (@parents) {
-
-		next if $populated_trickle_parents->{$parent}++;
-
-		if (defined $conf->{$parent} && defined $conf->{$parent}->{$method}) {
-
-			$parent->add_trickle_class_attr($method);
-			$parent->$method($conf->{$parent}->{$method})
-				unless $parent eq $class;
-
-		}
-	}
-
-	return 1;	
-};
-
-=pod
-
-=begin btest(populate_trickle_parents)
-
-my $conf = __PACKAGE__->conf;
-$test->ok($conf, "Got conf");
-
-$conf->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass1'}->{'foo'} = 'subclass 1';
-$conf->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass3'}->{'foo'} = 'subclass 3';
-
-package __PACKAGE__::Testing::populate_trickle_parents::Subclass1;
-
-our @ISA = qw(__PACKAGE__);
-
-__PACKAGE__::Testing::populate_trickle_parents::Subclass1->add_trickle_class_attr('foo');
-
-package __PACKAGE__::Testing::populate_trickle_parents::Subclass2;
-
-our @ISA = qw(__PACKAGE__::Testing::populate_trickle_parents::Subclass1);
-
-package __PACKAGE__::Testing::populate_trickle_parents::Subclass3;
-
-our @ISA = qw(__PACKAGE__::Testing::populate_trickle_parents::Subclass2);
-
-package __PACKAGE__;
-
-$test->ok(! __PACKAGE__::Testing::populate_trickle_parents::Subclass1->populate_trickle_parents, "Cannot populate parents w/o method");
-$test->is(__PACKAGE__::Testing::populate_trickle_parents::Subclass1->errcode, "BO-30", "Proper error code");
-
-$test->ok(__PACKAGE__::Testing::populate_trickle_parents::Subclass3->populate_trickle_parents('foo'), "populated sub 3's parents");
-
-$test->ok(__PACKAGE__->populated_trickle_parents->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass1'}, "subclass1 is populated");
-
-$test->is(__PACKAGE__::Testing::populate_trickle_parents::Subclass1->foo, 'subclass 1', 'proper super attribute');
-
-$test->ok(__PACKAGE__->populated_trickle_parents->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass1'}, "subclass1 populated");
-$test->ok(__PACKAGE__->populated_trickle_parents->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass2'}, "subclass2 is populated");
-$test->ok(__PACKAGE__->populated_trickle_parents->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass3'}, "subclass3 is populated");
-$test->is(__PACKAGE__::Testing::populate_trickle_parents::Subclass3->foo, 'subclass 3', 'proper sub attribute');
-
-$test->ok(__PACKAGE__->populated_trickle_parents->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass2'}, "subclass2 populated");
-$test->ok(__PACKAGE__->populated_trickle_parents->{'__PACKAGE__::Testing::populate_trickle_parents::Subclass3'}, "subclass3 populated");
-
-
-=end btest(populate_trickle_parents)
-
-=cut
-
 
 =pod
 
@@ -901,7 +813,7 @@ sub _accessor {
 	my $self = shift;
 	my $prop = shift;
 
-	return $self->error("Not a class attribute", "BO-08") unless ref $self;
+	return $self->error("Not a class attribute", "BO-08", 0, 'DIE DIE DIE') unless ref $self;
 
 	$self->{$prop} = shift if @_;
 
@@ -930,6 +842,312 @@ sub _regex_accessor {
 		return $self->$prop();
 	};
 };
+
+sub _private_accessor {
+	my $self = shift;
+	my $prop = shift;
+
+	my @caller = caller;
+
+	return $self->error("Cannot access $prop : private method", "BO-27") unless $caller[0] eq $self->pkg;
+
+	return $self->$prop(@_);
+}
+
+=pod
+
+=item add_wrapper
+
+You can now wrapper methods (or attributes, if desired, but using the extended add_attr syntax may be more appropriate
+for it) with before and after hooks that will get executed before or after the method, as desired. Syntax is:
+
+ $class->add_wrapper('(before|after)', 'method_name', 'wrapper_name');
+
+That is, either before or after method_name is called, call wrapper_name first. Before wrappers are good to change the
+values going into a method, after wrappers are good to change the values coming back out.
+
+For example,
+
+ sub foo_wrapper {
+ 	my $self = shift;
+ 	my @args = @_; # (whatever was passed in to foo)
+ 	print "I am executing foo!\n";
+ 	return 1;
+ }
+
+ $class->add_wrapper('before', 'foo', 'foo_wrapper');
+
+ Now, $class->foo() is functionally the same as:
+
+ if ($class->foo_wrapper) {
+ 	$class->foo();
+ }
+
+Ditto for the after wrapper.
+
+ if ($class->foo) {
+ 	$class->after_foo_wrapper;
+ }
+
+Wrappers are run in reverse add order. That is, wrappers added later are executed before wrappers added earlier.
+Wrappers are inherited in subclasses. Subclasses run all of their wrappers in reverse add order, then run all
+super class wrappers in reverse add order.
+
+Wrapper functions should return a true value upon success, or set an error upon failure.
+
+Performance hit is fairly negligible, since add_wrapper re-wires the symbol table. So be careful using this
+functionality with other methods that may re-wire the symbol table (such as Basset::Object::Persistent's _instantiating_accessor)
+
+See also the extended syntax for add_attr, and Basset::Object::Persistent's import_from_db and export_to_db methods
+for different places to add in hooks, as well as the delegate attribute, below, for another way to extend code.
+
+The performance hit for wrappers is reasonably small, but if a wrappered method is constantly being hit and the 
+wrapping code isn't always used (for example, wrapping an attribute. If your wrapper only does anything
+upon mutation, it's wasteful, since the wrapper will still -always- be called), you can suffer badly. In those
+cases, an extended attribute or an explicit wrapper function of your own may be more useful. Please note that wrappers
+can only be defined on a per-method basis. If you want to re-use wrappers across multiple methods, you'll need your
+own wrapping mechanism. For example, using the extended attribute syntax to use a different accessor method.
+
+There is an optional fourth argument - the conditional operator. This is a method (or coderef called as a method) that
+is executed before the wrapper is called. If the conditional returns true, the wrapper is then executed. If the conditional
+returns false, the wrapper is not executed.
+
+ Some::Class->add_wrapper('after', 'name', 'validation', sub {
+ 	my $self = shift;
+ 	return @_;
+ } );
+
+That wrapper will only call the 'validation' method upon mutation (that is, when there are arguments passed) and
+not upon simple access.
+
+Subclasses may define additional wrapper types.
+
+=cut
+
+sub add_wrapper {
+
+	my $class		= shift;
+	my $type		= shift or return $class->error("Cannot add wrapper w/o type", "BO-31");
+	my $attribute	= shift or return $class->error("Cannot add wrapper w/o attribute", "BO-32");
+	my $wrapper		= shift or return $class->error("Cannot add wrapper w/o wrapper", "BO-33");
+	my $conditional	= shift || 'no_op';
+
+	return $class->error("Cannot add wrapper : class does not know how to $attribute", "BO-34")
+		unless $class->can($attribute);
+
+	my $private = $class->privatize("privately_wrappered_$attribute");
+
+	no strict 'refs';
+	no warnings;
+
+	my $ptr;
+
+	if (*{$class . "::$attribute"}{'CODE'}) {
+
+		*{$class . "::$private"} = *{$class . "::$attribute"}{'CODE'};
+		#if it's local to us, we're carefully hiding the function, so we need to look
+		#at an actual reference to the original
+		$ptr = *{$class . "::$private"}{'CODE'};
+	} else {
+	#otherwise, we need to find out who owns it, and keep a soft pointer to it.
+		my @parents = reverse @{$class->isa_path};
+		foreach my $parent (@parents) {
+			if (*{$parent . "::$attribute"}{'CODE'}) {
+				# but, if it's the parent's, then we need to only point to the name of the method
+				# in the parent's class. This allows the parent to add a wrapper on this method
+				# after we do, and we still get it.
+				$ptr = "${parent}::$attribute";
+				last;
+			}
+		}
+	}
+
+	#of course, we can't do anything unless our wrapper is something the class can do, or it's an anonymous method
+	return $class->error("Cannot add wrapper: Class cannot $wrapper", "BO-35")
+		unless $class->can($wrapper) || ref $wrapper eq 'CODE';
+
+	if ($type eq 'before') {
+
+		*{$class . "::$attribute"} = sub {
+			my $self = shift;
+
+			if ($self->$conditional(@_)) {
+				$self->$wrapper($ptr, @_) or return;
+			}
+
+			return $self->$ptr(@_);
+
+		}
+	}
+	elsif ($type eq 'after') {
+		*{$class . "::$attribute"} = sub {
+			my $self = shift;
+
+			my $rc = $self->$ptr(@_) or return;
+
+			return $self->$conditional(@_) ? $self->$wrapper($ptr, $rc, @_) : $rc;
+		}
+	} else {
+		return $class->error("Cannot add wrapper: unknown type $type", "BO-36");
+	}
+
+	return 1;
+
+}
+
+=pod
+
+=begin btest(add_wrapper)
+
+my $subclass = "Basset::Test::Testing::__PACKAGE__::add_wrapper";
+my $subclass2 = "Basset::Test::Testing::__PACKAGE__::add_wrapper2";
+
+package Basset::Test::Testing::__PACKAGE__::add_wrapper;
+our @ISA = qw(__PACKAGE__);
+
+$subclass->add_attr('attr1');
+$subclass->add_attr('attr2');
+$subclass->add_attr('before_wrapper');
+$subclass->add_attr('before_wrapper2');
+$subclass->add_attr('after_wrapper');
+$subclass->add_attr('after_wrapper2');
+$subclass->add_attr('code_wrapper');
+
+sub wrapper1 {shift->before_wrapper('set')};
+
+sub wrapper2 {
+	$_[0]->before_wrapper('B4SET');
+	$_[0]->before_wrapper2('set2');
+}
+
+sub wrapper3 {
+	$_[0]->before_wrapper('ASET1');
+	$_[0]->before_wrapper2('ASET2');
+	return $_[2];
+}
+
+sub wrapper5 {
+	$_[0]->before_wrapper('5-BSET1');
+	$_[0]->before_wrapper2('5-BSET2');
+	$_[0]->after_wrapper('5-ASET1');
+	$_[0]->after_wrapper2('5-ASET2');
+}
+
+package Basset::Test::Testing::__PACKAGE__::add_wrapper2;
+our @ISA = ($subclass);
+
+sub wrapper4 {
+	shift->after_wrapper('AWRAPPER');
+}
+
+package __PACKAGE__;
+
+$test->ok(! $subclass->add_wrapper, "Cannot add wrapper w/o type");
+$test->is($subclass->errcode, "BO-31", "proper error code");
+
+$test->ok(! $subclass->add_wrapper('before'), "Cannot add wrapper w/o attribute");
+$test->is($subclass->errcode, "BO-32", "proper error code");
+
+$test->ok(! $subclass->add_wrapper('before', 'bogus_wrapper'), "Cannot add wrapper w/o wrapper");
+$test->is($subclass->errcode, "BO-33", "proper error code");
+
+$test->ok(! $subclass->add_wrapper('before', 'bogus_attribute', 'bogus_wrapper'), "Cannot add wrapper: bogus attribute");
+$test->is($subclass->errcode, "BO-34", "proper error code");
+
+$test->ok(! $subclass->add_wrapper('before', 'attr2', 'bogus_wrapper'), "Cannot add wrapper: bogus wrapper");
+$test->is($subclass->errcode, "BO-35", "proper error code");
+
+$test->ok(! $subclass->add_wrapper('junk', 'attr2', 'wrapper1'), "Cannot add wrapper: bogus type");
+$test->is($subclass->errcode, "BO-36", "proper error code");
+
+$test->ok($subclass->add_wrapper('before', 'attr1', 'wrapper1'), "added wrapper to ref");
+
+my $o = $subclass->new();
+$test->ok($o, "got object");
+
+$test->is($o->before_wrapper, undef, "before_wrapper is undef");
+$test->is($o->attr1('foo'), 'foo', 'set attr1 to foo');
+$test->is($o->before_wrapper, 'set', 'before_wrapper is set');
+
+$test->is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+
+$test->ok($subclass->add_wrapper('before', 'attr1', 'wrapper2'), "added wrapper to ref");
+
+$test->is($o->before_wrapper, undef, "before_wrapper is undef");
+$test->is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o->before_wrapper, 'set', 'before_wrapper is set');
+$test->is($o->before_wrapper2, 'set2', 'before_wrapper2 is set2');
+$test->is($o->after_wrapper, undef, 'after_wrapper is undef');
+$test->is($o->after_wrapper2, undef, 'after_wrapper2 is undef');
+
+$test->is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+$test->is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+
+$test->ok($subclass->add_wrapper('after', 'attr1', 'wrapper3'), "added after wrapper to ref");
+
+$test->is($o->before_wrapper, undef, "before_wrapper is undef");
+$test->is($o->attr1('baz'), 'baz', 'set attr1 to baz');
+$test->is($o->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
+$test->is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+
+my $o2 = $subclass2->new();
+$test->ok($o2, "got sub object");
+
+$test->ok($subclass2->add_wrapper('before', 'attr1', 'wrapper4'), "added after wrapper to ref");
+
+$test->is($o2->before_wrapper, undef, "before_wrapper is undef");
+$test->is($o2->attr1('baz'), 'baz', 'set attr1 to baz');
+$test->is($o2->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
+$test->is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+$test->is($o2->after_wrapper, 'AWRAPPER', 'after_wrapper is AWRAPPER');
+
+$test->is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+$test->is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+$test->is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
+$test->is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
+
+$test->ok($subclass->add_wrapper('before', 'attr1', 'wrapper5'), "added before wrapper to ref");
+
+$test->is($o->before_wrapper, undef, "before_wrapper is undef");
+$test->is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
+$test->is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+$test->is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
+$test->is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
+
+
+$test->is($o2->before_wrapper(undef), undef, "before_wrapper is undef");
+$test->is($o2->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+$test->is($o2->after_wrapper(undef), undef, "after_wrapper2 is undef");
+$test->is($o2->after_wrapper2(undef), undef, "after_wrapper2 is undef");
+
+$test->is($o2->before_wrapper, undef, "before_wrapper is undef");
+$test->is($o2->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o2->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
+$test->is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+$test->is($o2->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
+$test->is($o2->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
+
+
+$test->is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+$test->is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+$test->is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
+$test->is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
+
+$test->is($o->before_wrapper, undef, "before_wrapper is undef");
+$test->is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
+$test->is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+$test->is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
+$test->is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
+
+$test->ok($subclass->add_wrapper('before', 'attr1', sub {$_[0]->code_wrapper('SET CODE WRAP'); return 1}), 'added coderef wrapper');
+$test->is($o->attr1('code'), 'code', 'set attr1 to code');
+$test->is($o->code_wrapper, 'SET CODE WRAP', 'properly used coderef wrapper');
+
+=end btest(add_wrapper)
+
+=cut
 
 =pod
 
@@ -1009,6 +1227,14 @@ The notification will not be posted if the optional third "silently" parameter i
 ->error can (and will) die if an error occurs very very early in the compilation process, namely if an error
 occurs before the 'exceptions' attribute is defined. It is assumed that if an error occurs that early on, it's a very
 bad thing, and you should bail out.
+
+You may also always cause an exception by passing in the double plus secret fourth parameter - "throw anyway".
+
+ Some::Class->error('foo', 'foo_code', 0, 'HOLY COW BAIL OUT NOW!');
+
+Use the throw anyway parameter with care. It should be reserved to cover coding errors. An issue that if it occurs, there
+is no way to continue and the programmer needs to fix it in advance. For example, _accessor throws an exception if you
+try to call it as a class method, and with good reason.
 
 =cut
 
@@ -1197,7 +1423,7 @@ sub error {
 	# then just die. We cannot continue.
 	unless ($self->can($errormethod) && $self->can($codemethod)) {
 		if (@_) {
-			die "System start up failure : @_";
+			croak("System start up failure : @_");
 		} else {
 			return;
 		}
@@ -1212,7 +1438,8 @@ sub error {
 
 			my $center = $self->pkg_for_type('notificationcenter', 'errorless');
 
-			my $silently = shift || 0;
+			my $silently		= shift || 0;
+			my $throw_anyway	= shift || 0;
 			unless ($silently) {
 				if (defined $center && $center->can('postNotification')) {
 					$center->postNotification(
@@ -1223,10 +1450,10 @@ sub error {
 				}
 			}
 
-			if ($self->can('exceptions')) {
+			if ($self->can('exceptions') || $throw_anyway) {
 				if ($self->exceptions && defined $self->$codemethod()) {
 					$self->last_exception($self->$errormethod());
-					die $self->$codemethod();
+					croak($self->$codemethod());
 				};
 			#something went horribly wrong very early on. Die with something useful.
 			} else {
@@ -1839,30 +2066,33 @@ sub add_restrictions {
 
 	my $restrictions = $self->restrictions();
 
+#	@$restrictions{keys %newrestrictions} = values %newrestrictions;
 
-	#this is a nuisance. We're here, so we know that we're adding restrictions.
-	#if there's already a restrictions hash, we need to duplicate it here. See the
-	#docs for add_trickle_class_attr above for more info on dealing with trickled class attributes
-	#that contain references
-	if ($restrictions) {
-		my $val = $self->dump($restrictions);
-		$val =~ /^(\$\w+)/;
-		local $@ = undef;
-		$restrictions = eval qq{
-			my $1;
-			eval \$val;
-		};
-	}
-	#otherwise, we create a new hash
-	else {
-		$restrictions = {};
-	};
 
-	@$restrictions{keys %newrestrictions} = values %newrestrictions;
+       #this is a nuisance. We're here, so we know that we're adding restrictions.
+       #if there's already a restrictions hash, we need to duplicate it here. See the
+       #docs for add_trickle_class_attr above for more info on dealing with trickled class attributes
+       #that contain references
+       if ($restrictions) {
+               my $val = $self->dump($restrictions);
+               $val =~ /^(\$\w+)/;
+               local $@ = undef;
+               $restrictions = eval qq{
+                       my $1;
+                       eval \$val;
+               };
+       }
+       #otherwise, we create a new hash
+       else {
+               $restrictions = {};
+       };
 
-	#finally, we can properly set the new hash because we're guaranteed that it's always a copy
-	#that we want to operate on.
-	$self->restrictions($restrictions);
+        @$restrictions{keys %newrestrictions} = values %newrestrictions;
+ 
+       #finally, we can properly set the new hash because we're guaranteed that it's always a copy
+       #that we want to operate on.
+       $self->restrictions($restrictions);
+
 
 	return 1;
 }
@@ -2100,6 +2330,23 @@ sub inline_class {
 	return $class;
 };
 
+sub load_pkg {
+	my $class = shift;
+
+	my $newclass = shift or return $class->error("Cannot load_pkg w/o class", "BO-28");
+	my $errorless = shift || 0;
+
+	local $@ = undef;
+	eval "use $newclass" unless $INC{$class->module_for_class($newclass)};
+	
+	if ($@) {
+		return $errorless ? undef : $class->error("Cannot load class ($newclass) : $@", "BO-29");
+	}
+
+	return $newclass;
+}
+
+
 =pod
 
 =item restrict
@@ -2332,10 +2579,12 @@ Any accessors or methods you'd like may be passed to the constructor. Any unknow
 If you pass a method/value pair to the constructor, it will override any equivalent method/value pair in the
 conf file.
 
-Also note that any methods that return undef are assumed to be errors and will cause your construction to fail.
+Also note that any methods that return undef are assumed to be errors and will cause your construction to fail. But, if you explicitly pass
+in an 'undef' parameter and your method/mutator fails, then we will assume you know what you're doing and it's allowed. You only fail
+if you pass in a value other than undef, but the result of the method call is an undef.
 
  $obj = Class->new(
- 	'method' => undef
+ 	'attr' => undef
  ) || die Class->error;
 
 If you really really need to to explicitly set something to undef, you'll need to do it afterwards:
@@ -2507,10 +2756,10 @@ sub init {
 	#initialize our values brought in from the conf file
 	foreach my $pkg (@$parents){
 
-		%defaults = (
-			%defaults,
-			map {substr($_,1), $conf->{$pkg}->{$_}} grep {/^-/} keys %{$conf->{$pkg}}
-		);
+		my %pkgdef = map {substr($_,1), $conf->{$pkg}->{$_}} grep {/^-/} keys %{$conf->{$pkg}};
+		
+		@defaults{keys %pkgdef} = values %pkgdef;
+
 	}
 
 	my @init = (%defaults, @_);
@@ -2772,7 +3021,7 @@ $test->ok($typesbkp, "Backed up the types");
 $test->is(__PACKAGE__->types($newtypes), $newtypes, "Set new types");
 $test->is(__PACKAGE__->pkg_for_type('testtype1'), '__PACKAGE__', "Got class for new type");
 $test->ok(! scalar __PACKAGE__->pkg_for_type('testtype2'), "Could not access invalid type");
-$test->is(__PACKAGE__->errcode, 'BO-11', 'proper error code');
+$test->is(__PACKAGE__->errcode, 'BO-29', 'proper error code');
 
 __PACKAGE__->wipe_errors;
 $test->is(scalar(__PACKAGE__->pkg_for_type('testtype2', 'errorless')), undef, "Could not access invalid type w/ second arg");
@@ -2810,14 +3059,12 @@ sub pkg_for_type {
 	};
 
 	if (defined $pkg) {
-		local $@ = undef;
-		eval "use $pkg" unless $INC{$class->module_for_class($pkg)};
-		if ($@) {
-			return $errorless ? undef : $class->error("Could not load class ($pkg) for type ($abstype) : $@", "BO-11");
-		} else {
-			$types->{$abstype} = [$pkg, 1];
-			return $pkg;
-		};
+
+		return unless $class->load_pkg($pkg, $errorless);
+		
+		$types->{$abstype} = [$pkg, 1];
+		return $pkg;
+
 	} else {
 		return $errorless ? undef : $class->error("No class for type ($abstype)", "BO-09");
 	}
@@ -2878,13 +3125,13 @@ But you need this:
  Basset::Object
  ^
  |
- ED::Object
+ WidgetTech::Object
  ^
  |
  Basset::Object::Persistent
  ^
  |
- ED::Object::Persistent
+ WidgetTech::Object::Persistent
 
 Your W::O::P inherit B::O::P which inherits B::O. And this all bypasses WidgetTech::Object. You don't want to stick the methods
 into WidgetTech::Object::Persistent, since they need to be accessible to all classes, not just persistent ones. You (obviously)
@@ -3832,11 +4079,7 @@ sub cast {
 		$cast = $self;
 	}
 
-	unless ($INC{$self->module_for_class($class)}) {
-		local $@ = undef;
-		eval "use $class";
-		return $self->error("Could not use cast into class $class : $@", "BO-23") if $@;
-	};
+	$self->load_pkg($class) or return;
 
 	return bless $cast, $class;
 
@@ -3921,9 +4164,8 @@ __PACKAGE__->add_class_attr('populated_trickle_parents', {'Basset::Object' => 1}
 
 =item errortranslator
 
-The one and only attribute specified in Basset::Object. The errortranslator needs to be set to
-a hashref, and it translates programmer readable errors into user readable errors. It's clunky
-and a mess and a hack, but it works.
+The errortranslator needs to be set to a hashref, and it translates programmer 
+readable errors into user readable errors. It's clunky and a mess and a hack, but it works.
 
  __PACKAGE__->errortranslator(
 	{
@@ -3931,13 +4173,17 @@ and a mess and a hack, but it works.
 	}
  );
 
-$obj->do_something || die $obj->error(); 	# dies 'violation of key constraint foo: Cannot INSERT'
-$obj->do_something || die $obj->usererror();# dies 'Please specify a value for foo'
+ $obj->do_something || die $obj->error(); 	# dies 'violation of key constraint foo: Cannot INSERT'
+ $obj->do_something || die $obj->usererror();# dies 'Please specify a value for foo'
 
 The error translator looks at the error values, and if a more friendly user error exists, it returns that one instead.
 errortranslator looks at and returns (in order):
 
- the actual error, the raw error, the error code, a '*' wildcard, and then just returns the original error w/o modification.
+ the actual error,
+ the raw error, 
+ the error code, 
+ a '*' wildcard, 
+ and then just returns the original error w/o modification.
 
 Be careful using the '*' wildcard. This will translate -any- error message that doesn't have a friendlier version.
 
@@ -4356,7 +4602,7 @@ Basset::Object::Conf, Basset::Object::Persistent
 
 =head1 COPYRIGHT (again) and license
 
-Copyright and (c) 1999, 2000, 2002, 2003, 2004 James A Thomason III (jim@jimandkoka.com). All rights reserved.
+Copyright and (c) 1999, 2000, 2002, 2003, 2004, 2005 James A Thomason III (jim@jimandkoka.com). All rights reserved.
 
 Basset is distributed under the terms of the Artistic License.
 

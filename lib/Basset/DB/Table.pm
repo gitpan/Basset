@@ -345,8 +345,7 @@ And voila. Instant extra information.
 Keep in mind, naturally, that if you want that extra column you're getting out to *go* anywhere, that your object
 must have a method by that name ("current_time" in this case). Otherwise, the data will be loaded and then silently forgotten.
 
-If you're skipping ahead, you'll see that there are attributes called "db_write_translation", and "db_read_translation", and that
-Basset::Object::Persistent has 'perl_write_translation' and 'perl_read_translation'. 
+If you're skipping ahead, you'll see that there are attributes called "db_write_translation", and "db_read_translation".
 Use whichever thing is appropriate for you.
 
 extra_select only affects select queries.
@@ -527,8 +526,8 @@ will fail. Your query would become:
 
  update....set foo = some constant value...
 
-which chokes, of course. Use a perl_write_translation to alter the value you pass in at a higher level. The db_write_translation
-only alters your actual SQL statement.
+which chokes, of course. Use a wrapper to alter the value you pass in at a higher level, or quote it yourself.
+The db_write_translation only alters your actual SQL statement.
 
 =cut
 
@@ -1210,6 +1209,8 @@ sub init {
 		'references'				=> {},
 		'_cached_queries'			=> {},
 		'_cached_bindables'			=> {},
+		'attributes_not_to_create'	=> [],
+		'create_attributes'			=> 1,
 		@_
 	);
 
@@ -1227,6 +1228,22 @@ sub init {
 		%init
 	);
 };
+
+__PACKAGE__->add_attr('_attributes_to_create');
+__PACKAGE__->add_attr('attributes_not_to_create');
+
+__PACKAGE__->add_attr('create_attributes');
+
+sub attributes_to_create {
+	my $self = shift;
+	if (@_) {
+		$self->_attributes_to_create($_[0]);
+	};
+	
+	my %not = map {$_, 1} @{$self->attributes_not_to_create};
+	
+	return grep {! $not{$_} } $self->alias_column($self->_attributes_to_create ? @{$self->_attributes_to_create} : $self->cols);
+}
 
 =pod
 
@@ -2412,7 +2429,7 @@ my $def = {
 $test->is($o->definition($def), $def, "Set definition");
 $test->is($o->definition, $def, "Got definition");
 
-my %bindable = map {$_, 1} $o->delete_bindables();
+my %bindable = map {$_, 1} grep {defined} $o->delete_bindables();
 
 $test->is($bindable{'able'}, undef, 'able is not delete bindable');
 $test->is($bindable{'baker'}, undef, 'baker is not delete bindable');
@@ -2464,7 +2481,7 @@ my $def = {
 $test->is($o->definition($def), $def, "Set definition");
 $test->is($o->definition, $def, "Got definition");
 
-my %bindable = map {$_, 1} $o->select_bindables;
+my %bindable = map {$_, 1} grep {defined} $o->select_bindables;
 
 $test->is($bindable{'able'}, undef, 'able is not select bindable');
 $test->is($bindable{'baker'}, undef, 'baker is not select bindable');
@@ -2611,9 +2628,9 @@ sub insert_query {
 			return $self->error("Cannot insert column not in table : $col", "BDT-07")
 				unless $self->is_column($col);
 		};
-	};
-
-	@cols = $self->insert_columns unless @cols;
+	} else {
+		@cols = $self->insert_columns;
+	}
 
 	my $querykey = join(',', 'insert', @cols);
 
@@ -2868,9 +2885,9 @@ sub update_query {
 			return $self->error("Cannot update column not in table : $col", "BDT-06")
 				unless $self->is_column($col);
 		};
-	};
-
-	@cols = $self->update_columns unless @cols;
+	} else {
+		@cols = $self->update_columns;
+	}
 
 	#my $where = " where " . join(' and ', map {"$_ = ?"} $self->primary_cols);
 
@@ -3035,9 +3052,7 @@ sub select_query {
 				#regex matches numbers, "foo", 'foo', or function(), also used below
 				#in constructing the query
 		};
-	};
-
-	unless (@cols) {
+	} else {
 		@cols = ($self->select_columns, keys %{$self->extra_select});
 	};
 
@@ -3382,14 +3397,22 @@ sub multiselect_query {
 
 	my $joined_tables = $class->join_tables(@{$init{'tables'}}) or return;
 
+	my %omit = ();
+
+	if ($init{'omit_columns_from_tables'}) {
+		%omit = map {$_->name, 1} @{$init{'omit_columns_from_tables'}};
+	}
+
 	unless (@{$init{'cols'}}) {
 		#we duplicate the for loop to keep from doing the condition constantly in the loop. Lazy, I know.
 		if ($init{'use_aliases'}) {
 			foreach my $table (@{$init{'tables'}}) {
+				next if $omit{$table->name};
 				push @{$init{'cols'}}, map {$table->db_translate_read($_) . ' as ' . $table->alias_column($_)} $table->select_columns;
 			}
 		} else {
 			foreach my $table (@{$init{'tables'}}) {
+				next if $omit{$table->name};
 				push @{$init{'cols'}}, map {$table->db_translate_read($_)} $table->select_columns;
 			}
 		}
@@ -3768,7 +3791,7 @@ my $def = {
 $test->is($o->definition($def), $def, "Set definition");
 
 {
-	my %primary = map {$_, 1} $o->primary_cols;
+	my %primary = map {$_, 1} grep {defined} $o->primary_cols;
 
 	$test->is($primary{'able'}, undef, 'able is not primary column');
 	$test->is($primary{'baker'}, undef, 'baker is not primary column');
@@ -3919,7 +3942,7 @@ sub foreign_cols {
 
 	my $foreign_table = shift or return $self->error("Cannot get foreign cols w/o table", "BDT-45");
 
-	my @foreign_table_cols = map {$foreign_table->qualified_name($_)} (@_ ? @_ : $foreign_table->primary_cols);
+	my @foreign_table_cols = map {$foreign_table->qualified_name($_)} grep {defined} (@_ ? @_ : $foreign_table->primary_cols);
 
 	my $idx = 0;
 	my %foreign_table_cols = map {$_, ++$idx} @foreign_table_cols;
@@ -4030,7 +4053,13 @@ sub discover_columns {
 	my $stmt = $self->arbitrary_sql(
 		'query' => "select $columns from $table where 1 = 0",
 		'iterator' => 1,
-	) or return;
+	) or do {
+		if ($columns) {
+			return { map {$_, undef} @_};
+		} else {
+			return;
+		}
+	};
 
 	my $definition = {};
 	for (my $idx = 0; $idx < $stmt->{'NUM_OF_FIELDS'}; $idx++) {
@@ -4678,6 +4707,7 @@ my $o = __PACKAGE__->new();
 $test->ok($o, "Got object");
 
 $test->is(scalar($o->qualified_name()), undef, 'could not get qualified name w/o column');
+
 $test->is($o->errcode, 'BDT-23', 'Proper error code');
 $test->is(scalar($o->qualified_name('foo')), undef, 'could not get qualified name w/o table name');
 $test->is($o->errcode, 'BDT-24', 'Proper error code');
@@ -4695,6 +4725,19 @@ $test->is($o->qualified_name('test2.bar'), 'test2.bar', 'previously column test2
 =cut
 
 sub qualified_name {
+	my $self	= shift;
+	my @cols	= @_ or return $self->error("Cannot qualify name w/o column", "BDT-23");
+	my $name = $self->name or return $self->error("Cannot qualify name w/o table name", "BDT-24");
+
+	foreach my $column (@cols) {
+		next if index($column, '.') != -1;
+		$column = "$name.$column";
+	}
+	
+	return wantarray ? @cols : $cols[0];
+};
+
+sub oqualified_name {
 	my $self = shift;
 	my $column = shift or return $self->error("Cannot qualify name w/o column", "BDT-23");
 	my $name = $self->name or return $self->error("Cannot qualify name w/o table name", "BDT-24");

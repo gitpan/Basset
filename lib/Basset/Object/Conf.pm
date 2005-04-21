@@ -22,7 +22,7 @@ and some bits of interaction with the rest of the system. See Basset::Object for
 =cut
 
 
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 #
 # Basset::Object::Conf isa Basset::Object, but there are circular inheritance reasons. So, instead,
@@ -56,10 +56,10 @@ There is no way for a program to later look at a less significant conf value.
 =cut
 
 our @conf_files = (qw(
-	/etc/basset.conf
-	./basset.conf
-	Basset/Object/basset.conf
-	lib/Basset/Object/basset.conf
+       /etc/basset.conf
+       ./basset.conf
+       Basset/Object/basset.conf
+       lib/Basset/Object/basset.conf
 ));
 our %conf_files = ();
 
@@ -195,7 +195,7 @@ sub read_conf_file {
 				
 				$line =~ s/(?:^\s+|\s+$)//g;
 				$line =~ /^(?:\s*(\d+)\s*:)?\s*([-+]?\w+)\s*([@%]?)=\s*(.+)/
-					|| return $class->error("Invalid conf file : $line", "BOC-02");
+					or return $class->error("Invalid conf file : $line", "BOC-02");
 
 				my ($user, $key, $ref, $val) = ($1, $2, $3, $4);
 

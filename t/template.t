@@ -1,4 +1,4 @@
-use Test::More tests => 681;
+use Test::More tests => 742;
 use Basset::Template;
 package Basset::Template;
 {		Test::More::ok(1, "uses strict");
@@ -7,7 +7,7 @@ package Basset::Template;
 {		Test::More::ok(1, "uses strict");
 		Test::More::ok(1, "uses warnings");
 };
-{#line 193 add_attr
+{#line 213 add_attr
 sub test_accessor {
 	my $self = shift;
 	my $prop = shift;
@@ -110,7 +110,7 @@ Test::More::is(scalar Basset::Template->test_attribute5('testval20'), undef, "Cl
 Test::More::is(scalar Basset::Template->test_attribute5(), undef, "Class fails to access");
 Test::More::is(scalar Basset::Template->test_attribute5(undef), undef, "Class fails to delete");
 };
-{#line 366 add_class_attr
+{#line 375 add_class_attr
 my $o = Basset::Template->new();
 Test::More::ok($o, "Object created");
 
@@ -193,7 +193,7 @@ $conf->{'Basset::Template'}->{'_test_attribute'} = 'test value';
 Test::More::ok(Basset::Template->add_class_attr('_test_attribute'), 'added test attribute');
 Test::More::is(Basset::Template->_test_attribute, 'test value', 'populated with value from conf fiel');
 };
-{#line 594 add_trickle_class_attr
+{#line 605 add_trickle_class_attr
 my $o = Basset::Template->new();
 Test::More::ok($o, "Object created");
 
@@ -255,47 +255,7 @@ package Basset::Template;
 	Test::More::like($@, qr/^Conf file error :/, 'could not add trickle class attr w/o conf file');
 }
 };
-{#line 771 populate_trickle_parents
-my $conf = Basset::Template->conf;
-Test::More::ok($conf, "Got conf");
-
-$conf->{'Basset::Template::Testing::populate_trickle_parents::Subclass1'}->{'foo'} = 'subclass 1';
-$conf->{'Basset::Template::Testing::populate_trickle_parents::Subclass3'}->{'foo'} = 'subclass 3';
-
-package Basset::Template::Testing::populate_trickle_parents::Subclass1;
-
-our @ISA = qw(Basset::Template);
-
-Basset::Template::Testing::populate_trickle_parents::Subclass1->add_trickle_class_attr('foo');
-
-package Basset::Template::Testing::populate_trickle_parents::Subclass2;
-
-our @ISA = qw(Basset::Template::Testing::populate_trickle_parents::Subclass1);
-
-package Basset::Template::Testing::populate_trickle_parents::Subclass3;
-
-our @ISA = qw(Basset::Template::Testing::populate_trickle_parents::Subclass2);
-
-package Basset::Template;
-
-Test::More::ok(! Basset::Template::Testing::populate_trickle_parents::Subclass1->populate_trickle_parents, "Cannot populate parents w/o method");
-Test::More::is(Basset::Template::Testing::populate_trickle_parents::Subclass1->errcode, "BO-30", "Proper error code");
-
-Test::More::ok(Basset::Template::Testing::populate_trickle_parents::Subclass3->populate_trickle_parents('foo'), "populated sub 3's parents");
-
-Test::More::ok(Basset::Template->populated_trickle_parents->{'Basset::Template::Testing::populate_trickle_parents::Subclass1'}, "subclass1 is populated");
-
-Test::More::is(Basset::Template::Testing::populate_trickle_parents::Subclass1->foo, 'subclass 1', 'proper super attribute');
-
-Test::More::ok(Basset::Template->populated_trickle_parents->{'Basset::Template::Testing::populate_trickle_parents::Subclass1'}, "subclass1 populated");
-Test::More::ok(Basset::Template->populated_trickle_parents->{'Basset::Template::Testing::populate_trickle_parents::Subclass2'}, "subclass2 is populated");
-Test::More::ok(Basset::Template->populated_trickle_parents->{'Basset::Template::Testing::populate_trickle_parents::Subclass3'}, "subclass3 is populated");
-Test::More::is(Basset::Template::Testing::populate_trickle_parents::Subclass3->foo, 'subclass 3', 'proper sub attribute');
-
-Test::More::ok(Basset::Template->populated_trickle_parents->{'Basset::Template::Testing::populate_trickle_parents::Subclass2'}, "subclass2 populated");
-Test::More::ok(Basset::Template->populated_trickle_parents->{'Basset::Template::Testing::populate_trickle_parents::Subclass3'}, "subclass3 populated");
-};
-{#line 829 add_default_attr
+{#line 739 add_default_attr
 package Basset::Test::Testing::Basset::Template::add_default_class_attr::subclass;
 our @ISA = qw(Basset::Template);
 
@@ -320,7 +280,154 @@ package Basset::Template;
 	Test::More::like($@, qr/^Conf file error :/, 'could not add default class attr w/o conf file');
 }
 };
-{#line 1013 error
+{#line 994 add_wrapper
+my $subclass = "Basset::Test::Testing::Basset::Template::add_wrapper";
+my $subclass2 = "Basset::Test::Testing::Basset::Template::add_wrapper2";
+
+package Basset::Test::Testing::Basset::Template::add_wrapper;
+our @ISA = qw(Basset::Template);
+
+$subclass->add_attr('attr1');
+$subclass->add_attr('attr2');
+$subclass->add_attr('before_wrapper');
+$subclass->add_attr('before_wrapper2');
+$subclass->add_attr('after_wrapper');
+$subclass->add_attr('after_wrapper2');
+$subclass->add_attr('code_wrapper');
+
+sub wrapper1 {shift->before_wrapper('set')};
+
+sub wrapper2 {
+	$_[0]->before_wrapper('B4SET');
+	$_[0]->before_wrapper2('set2');
+}
+
+sub wrapper3 {
+	$_[0]->before_wrapper('ASET1');
+	$_[0]->before_wrapper2('ASET2');
+	return $_[2];
+}
+
+sub wrapper5 {
+	$_[0]->before_wrapper('5-BSET1');
+	$_[0]->before_wrapper2('5-BSET2');
+	$_[0]->after_wrapper('5-ASET1');
+	$_[0]->after_wrapper2('5-ASET2');
+}
+
+package Basset::Test::Testing::Basset::Template::add_wrapper2;
+our @ISA = ($subclass);
+
+sub wrapper4 {
+	shift->after_wrapper('AWRAPPER');
+}
+
+package Basset::Template;
+
+Test::More::ok(! $subclass->add_wrapper, "Cannot add wrapper w/o type");
+Test::More::is($subclass->errcode, "BO-31", "proper error code");
+
+Test::More::ok(! $subclass->add_wrapper('before'), "Cannot add wrapper w/o attribute");
+Test::More::is($subclass->errcode, "BO-32", "proper error code");
+
+Test::More::ok(! $subclass->add_wrapper('before', 'bogus_wrapper'), "Cannot add wrapper w/o wrapper");
+Test::More::is($subclass->errcode, "BO-33", "proper error code");
+
+Test::More::ok(! $subclass->add_wrapper('before', 'bogus_attribute', 'bogus_wrapper'), "Cannot add wrapper: bogus attribute");
+Test::More::is($subclass->errcode, "BO-34", "proper error code");
+
+Test::More::ok(! $subclass->add_wrapper('before', 'attr2', 'bogus_wrapper'), "Cannot add wrapper: bogus wrapper");
+Test::More::is($subclass->errcode, "BO-35", "proper error code");
+
+Test::More::ok(! $subclass->add_wrapper('junk', 'attr2', 'wrapper1'), "Cannot add wrapper: bogus type");
+Test::More::is($subclass->errcode, "BO-36", "proper error code");
+
+Test::More::ok($subclass->add_wrapper('before', 'attr1', 'wrapper1'), "added wrapper to ref");
+
+my $o = $subclass->new();
+Test::More::ok($o, "got object");
+
+Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
+Test::More::is($o->attr1('foo'), 'foo', 'set attr1 to foo');
+Test::More::is($o->before_wrapper, 'set', 'before_wrapper is set');
+
+Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+
+Test::More::ok($subclass->add_wrapper('before', 'attr1', 'wrapper2'), "added wrapper to ref");
+
+Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
+Test::More::is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+Test::More::is($o->before_wrapper, 'set', 'before_wrapper is set');
+Test::More::is($o->before_wrapper2, 'set2', 'before_wrapper2 is set2');
+Test::More::is($o->after_wrapper, undef, 'after_wrapper is undef');
+Test::More::is($o->after_wrapper2, undef, 'after_wrapper2 is undef');
+
+Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+Test::More::is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+
+Test::More::ok($subclass->add_wrapper('after', 'attr1', 'wrapper3'), "added after wrapper to ref");
+
+Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
+Test::More::is($o->attr1('baz'), 'baz', 'set attr1 to baz');
+Test::More::is($o->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
+Test::More::is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+
+my $o2 = $subclass2->new();
+Test::More::ok($o2, "got sub object");
+
+Test::More::ok($subclass2->add_wrapper('before', 'attr1', 'wrapper4'), "added after wrapper to ref");
+
+Test::More::is($o2->before_wrapper, undef, "before_wrapper is undef");
+Test::More::is($o2->attr1('baz'), 'baz', 'set attr1 to baz');
+Test::More::is($o2->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
+Test::More::is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+Test::More::is($o2->after_wrapper, 'AWRAPPER', 'after_wrapper is AWRAPPER');
+
+Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+Test::More::is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+Test::More::is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
+Test::More::is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
+
+Test::More::ok($subclass->add_wrapper('before', 'attr1', 'wrapper5'), "added before wrapper to ref");
+
+Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
+Test::More::is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+Test::More::is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
+Test::More::is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+Test::More::is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
+Test::More::is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
+
+
+Test::More::is($o2->before_wrapper(undef), undef, "before_wrapper is undef");
+Test::More::is($o2->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+Test::More::is($o2->after_wrapper(undef), undef, "after_wrapper2 is undef");
+Test::More::is($o2->after_wrapper2(undef), undef, "after_wrapper2 is undef");
+
+Test::More::is($o2->before_wrapper, undef, "before_wrapper is undef");
+Test::More::is($o2->attr1('bar'), 'bar', 'set attr1 to baz');
+Test::More::is($o2->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
+Test::More::is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+Test::More::is($o2->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
+Test::More::is($o2->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
+
+
+Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
+Test::More::is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
+Test::More::is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
+Test::More::is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
+
+Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
+Test::More::is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+Test::More::is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
+Test::More::is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
+Test::More::is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
+Test::More::is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
+
+Test::More::ok($subclass->add_wrapper('before', 'attr1', sub {$_[0]->code_wrapper('SET CODE WRAP'); return 1}), 'added coderef wrapper');
+Test::More::is($o->attr1('code'), 'code', 'set attr1 to code');
+Test::More::is($o->code_wrapper, 'SET CODE WRAP', 'properly used coderef wrapper');
+};
+{#line 1236 error
 my $notes = 0;
 
 sub notifier {
@@ -488,7 +595,7 @@ package Basset::Template;
 
 }
 };
-{#line 1268 rawerror
+{#line 1492 rawerror
 my $o = Basset::Template->new();
 Test::More::ok($o, "Object created");
 
@@ -506,11 +613,11 @@ Test::More::is($o->rawerror()->[0], 'raw object error %d', "Object formatted raw
 Test::More::ok(ref $o->rawerror() eq 'ARRAY', "Class formatted raw error unaffected");
 Test::More::is(Basset::Template->rawerror()->[0], "raw class error %d", "Class formatted raw error unaffected");
 };
-{#line 1321 errcode
+{#line 1545 errcode
 Test::More::is(scalar Basset::Template->error("test error", "test code", "silently"), undef, "Class sets errcode");
 Test::More::is(scalar Basset::Template->errcode(), "test code", "Class accesses");
 };
-{#line 1348 errstring
+{#line 1572 errstring
 Test::More::is(scalar Basset::Template->error("test error", "test code"), undef, "Class sets error & errcode");
 Test::More::is(Basset::Template->errstring(), "test error...with code (test code)", "Class accesses errstring");
 
@@ -529,7 +636,7 @@ Test::More::is(scalar(Basset::Template->errstring), undef, 'errcode returns noth
 Basset::Template->errcode('test code');
 Test::More::is(Basset::Template->errstring, 'error undefined...with code (test code)', 'errcode returns undefined w/o error');
 };
-{#line 1401 errvals
+{#line 1625 errvals
 my $notes = 0;
 
 sub notifier2 {
@@ -573,7 +680,7 @@ Test::More::ok(
 	), "Removed observer for error notifications"
 );
 };
-{#line 1475 usererror
+{#line 1699 usererror
 my $translator = Basset::Template->errortranslator();
 Test::More::ok(Basset::Template->errortranslator(
 	{
@@ -620,7 +727,7 @@ Test::More::is(Basset::Template->usererror(), "star error", "Class gets star err
 Test::More::is(Basset::Template->errortranslator($translator), $translator, 'Class reset error translator');
 Test::More::is(Basset::Template->use_real_errors($uses_real), $uses_real, "resets uses real errors");
 };
-{#line 1576 wipe_errors
+{#line 1800 wipe_errors
 Test::More::is(scalar Basset::Template->error("test error", "error code"), undef, "Class set error and errcode");
 Test::More::is(Basset::Template->error(), "test error", "Class accesses error");
 Test::More::is(Basset::Template->errcode(), "error code", "Class accesses errcode");
@@ -646,7 +753,7 @@ Test::More::ok(Basset::Template->wipe_errors(), "Class wiped errors");
 Test::More::is(Basset::Template->last_exception, undef, "last exception wiped out");
 Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0,"disables exceptions");
 };
-{#line 1649 notify
+{#line 1873 notify
 my $test1notes = undef;
 my $test2notes = undef;
 
@@ -737,7 +844,7 @@ Test::More::ok(
 	), "Removed observer for test2 notifications"
 );
 };
-{#line 1803 add_restrictions
+{#line 2027 add_restrictions
 package Basset::Test::Testing::Basset::Template::add_restrictions::Subclass1;
 our @ISA = qw(Basset::Template);
 
@@ -753,7 +860,7 @@ my %restrictions = (
 
 Test::More::ok(Basset::Test::Testing::Basset::Template::add_restrictions::Subclass1->add_restrictions(%restrictions), "Added restrictions to subclass");
 };
-{#line 1872 add_restricted_method
+{#line 2099 add_restricted_method
 package Basset::Test::Testing::Basset::Template::add_restricted_method::Subclass1;
 our @ISA = qw(Basset::Template);
 
@@ -824,7 +931,7 @@ Test::More::is(scalar Basset::Test::Testing::Basset::Template::add_restricted_me
 Test::More::is($subclass->e2, $e2 + 2, "Subclass restricted error unchanged");
 Test::More::is($subclass->c2, $c2 + 1, "Subclass restricted errcode unchanged");
 };
-{#line 2009 failed_restricted_method
+{#line 2236 failed_restricted_method
 package Basset::Test::Testing::Basset::Template::failed_restricted_method::Subclass2;
 our @ISA = qw(Basset::Template);
 
@@ -855,13 +962,13 @@ Test::More::ok(scalar $subclass->add_restricted_method('failure', 'successful'),
 Test::More::ok(scalar Basset::Test::Testing::Basset::Template::failed_restricted_method::Subclass2->successful, "Super Success is successful");
 Test::More::ok(! scalar $subclass->successful, "Subclass success fails");
 };
-{#line 2063 inline_class
+{#line 2290 inline_class
 my $class = Basset::Template->inline_class();
 Test::More::ok($class, "Got restricted class");
 Test::More::ok($class->restricted(), "Class is restricted");
 Test::More::ok(! Basset::Template->restricted(), "Superclass is not restricted");
 };
-{#line 2107 restrict
+{#line 2351 restrict
 package Basset::Test::Testing::Basset::Template::restrict::Subclass1;
 our @ISA = qw(Basset::Template);
 
@@ -899,7 +1006,7 @@ Test::More::ok(scalar Basset::Test::Testing::Basset::Template::restrict::Subclas
 
 Test::More::ok(scalar Basset::Test::Testing::Basset::Template::restrict::Subclass1->restrict('worthless restriction'), "Added unknown restriction");
 };
-{#line 2204 nonrestricted_parent
+{#line 2448 nonrestricted_parent
 package Basset::Test::Testing::Basset::Template::nonrestricted_parent::Subclass1;
 our @ISA = qw(Basset::Template);
 
@@ -920,7 +1027,7 @@ my $subclass3 = Basset::Template->inline_class;
 Test::More::ok($subclass3, "Got restricted class");
 Test::More::is($subclass3->nonrestricted_parent, "Basset::Template", "Restricted class has proper non restricted parent");
 };
-{#line 2262 dump
+{#line 2506 dump
 my $o = Basset::Template->new();
 Test::More::ok($o, "Created object");
 my $o2 = Basset::Template->new();
@@ -933,7 +1040,7 @@ Test::More::ok($o2->dump, "Dumped other object");
 Test::More::is($o->dump($o2), $o2->dump, "Dumps equal");
 Test::More::is($o->dump, $o2->dump($o), "Dumps equal");
 };
-{#line 2335 new
+{#line 2581 new
 my $o = Basset::Template->new();
 
 Test::More::ok($o, "created a new object");
@@ -1000,7 +1107,7 @@ Test::More::ok($o7, "Created object w/0 value");
 Test::More::is($o7->attr1, 7, 'attr1 value set');
 Test::More::is($o7->attr2, 0, 'attr2 value set');
 };
-{#line 2451 init
+{#line 2697 init
 package Basset::Test::Testing::Basset::Template::init::Subclass2;
 our @ISA = qw(Basset::Template);
 
@@ -1022,7 +1129,7 @@ package Basset::Template;
 	Test::More::ok($o, 'created object');
 }
 };
-{#line 2532 pkg
+{#line 2778 pkg
 package main::Basset::Test::Testing::Basset::Template::MainSubClass;
 our @ISA = qw(Basset::Template);
 
@@ -1056,7 +1163,7 @@ Test::More::is($so1->pkg, "Basset::Test::Testing::Basset::Template::MainSubClass
 Test::More::is($so2->pkg, "Basset::Test::Testing::Basset::Template::MainSubClass2", "Subclass works");
 Test::More::is($so3->pkg, "Basset::Test::Testing::Basset::Template::MainSubClass3", "Subclass works");
 };
-{#line 2607 factory
+{#line 2853 factory
 package Basset::Test::Testing::Basset::Template::factory::Subclass;
 our @ISA = qw(Basset::Template);
 
@@ -1074,7 +1181,7 @@ Test::More::ok($o2, "Factoried new object");
 Test::More::ok($o2->isa('Basset::Template'), "Factory object isa class object");
 Test::More::is(Basset::Template->types($oldtypes), $oldtypes, "reset old types");
 };
-{#line 2663 copy
+{#line 2909 copy
 package Basset::Test::Testing::Basset::Template::copy::subclass;
 our @ISA = qw(Basset::Template);
 
@@ -1123,7 +1230,7 @@ Test::More::is($array->[0], $array2->[0], "First element matches");
 Test::More::is($array->[1], $array2->[1], "Second element matches");
 Test::More::is($array->[2]->{'foo'}, $array2->[2]->{'foo'}, "Third element matches");
 };
-{#line 2742 pkg_for_type
+{#line 2988 pkg_for_type
 Test::More::ok(Basset::Template->types, "Got types out of the conf file");
 my $typesbkp = Basset::Template->types();
 my $newtypes = {%$typesbkp, 'testtype1' => 'Basset::Template', 'testtype2' => 'boguspkg'};
@@ -1131,7 +1238,7 @@ Test::More::ok($typesbkp, "Backed up the types");
 Test::More::is(Basset::Template->types($newtypes), $newtypes, "Set new types");
 Test::More::is(Basset::Template->pkg_for_type('testtype1'), 'Basset::Template', "Got class for new type");
 Test::More::ok(! scalar Basset::Template->pkg_for_type('testtype2'), "Could not access invalid type");
-Test::More::is(Basset::Template->errcode, 'BO-11', 'proper error code');
+Test::More::is(Basset::Template->errcode, 'BO-29', 'proper error code');
 
 Basset::Template->wipe_errors;
 Test::More::is(scalar(Basset::Template->pkg_for_type('testtype2', 'errorless')), undef, "Could not access invalid type w/ second arg");
@@ -1146,7 +1253,7 @@ Test::More::is(Basset::Template->errcode, 'BO-09', 'proper error code for no typ
 
 Test::More::is(Basset::Template->types($typesbkp), $typesbkp, "Re-set original types");
 };
-{#line 2911 inherits
+{#line 3155 inherits
 package Basset::Test::Testing::Basset::Template::inherits::Subclass1;
 Basset::Template->inherits('Basset::Test::Testing::Basset::Template::inherits::Subclass1', 'object');
 
@@ -1154,7 +1261,7 @@ package Basset::Template;
 
 Test::More::ok(Basset::Test::Testing::Basset::Template::inherits::Subclass1->isa('Basset::Object'), 'subclass inherits from root');
 };
-{#line 2953 isa_path
+{#line 3197 isa_path
 Test::More::ok(Basset::Template->isa_path, "Can get an isa_path for root");
 my $path = Basset::Template->isa_path;
 Test::More::is($path->[-1], 'Basset::Template', 'Class has self at end of path');
@@ -1196,20 +1303,20 @@ Test::More::ok($isa, "Got isa path");
 Test::More::is($isa->[-2], 'Basset::Template', 'Second to last entry is parent');
 Test::More::is($isa->[-1], 'Basset::Test::Testing::Basset::Template::isa_path::Subclass3', 'Last entry is self');
 };
-{#line 3047 module_for_class
+{#line 3291 module_for_class
 Test::More::is(scalar(Basset::Template->module_for_class), undef, "Could not get module_for_class w/o package");
 Test::More::is(Basset::Template->errcode, "BO-20", 'proper error code');
 Test::More::is(Basset::Template->module_for_class('Basset::Object'), 'Basset/Object.pm', 'proper pkg -> file name');
 Test::More::is(Basset::Template->module_for_class('Basset::Object::Persistent'), 'Basset/Object/Persistent.pm', 'proper pkg -> file name');
 Test::More::is(Basset::Template->module_for_class('Basset::DB::Table'), 'Basset/DB/Table.pm', 'proper pkg -> file name');
 };
-{#line 3080 conf
+{#line 3324 conf
 Test::More::ok(scalar Basset::Template->conf, "Class accessed conf file");
 my $o = Basset::Template->new();
 Test::More::ok(scalar $o, "Got object");
 Test::More::ok(scalar $o->conf, "Object accessed conf file");
 };
-{#line 3107 escape_for_html
+{#line 3351 escape_for_html
 Test::More::is(Basset::Template->escape_for_html('&'), '&#38;', 'escapes &');
 Test::More::is(Basset::Template->escape_for_html('a&'), 'a&#38;', 'escapes &');
 Test::More::is(Basset::Template->escape_for_html('&b'), '&#38;b', 'escapes &');
@@ -1244,21 +1351,21 @@ Test::More::is(Basset::Template->escape_for_html(q('"'')), '&#39;&#34;&#39;&#39;
 Test::More::is(Basset::Template->escape_for_html(), undef, 'escaped nothing returns undef');
 Test::More::is(Basset::Template->escape_for_html(undef), undef, 'escaped undef returns nothing');
 };
-{#line 3171 today
+{#line 3415 today
 Test::More::like(Basset::Template->today, qr/^\d\d\d\d-\d\d-\d\d$/, 'matches date regex');
 Test::More::like(Basset::Template->today('abc'), qr/^\d\d\d\d-\d\d-\d\d$/, 'matches date regex despite input');
 };
-{#line 3194 now
+{#line 3438 now
 Test::More::like(Basset::Template->now, qr/^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/, 'matches timestamp regex');
 Test::More::like(Basset::Template->now('def'), qr/^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/, 'matches timestamp regex despite input');
 };
-{#line 3223 gen_handle
+{#line 3467 gen_handle
 Test::More::ok(Basset::Template->gen_handle, "Generated handle");
 my $h = Basset::Template->gen_handle;
 Test::More::ok($h, "Generated second handle");
 Test::More::is(ref $h, "GLOB", "And it's a globref");
 };
-{#line 3298 perform
+{#line 3542 perform
 package Basset::Test::Testing::Basset::Template::perform::Subclass;
 our @ISA = qw(Basset::Template);
 
@@ -1456,7 +1563,7 @@ Test::More::ok(
 Test::More::is($o->attr2, 'a', "attr2 contains first element of arrayref");
 Test::More::is($o->attr3, $arr, "attr3 contains arrayref");
 };
-{#line 3569 stack_trace
+{#line 3813 stack_trace
 sub tracer {
 	return Basset::Template->stack_trace;
 };
@@ -1473,7 +1580,7 @@ Test::More::like($trace, qr/Want array\? :/, "Contains word: 'Want array:'");
 Test::More::like($trace, qr/Evaltext:/, "Contains word: 'Evaltext:'");
 Test::More::like($trace, qr/Is require\? :/, "Contains word: 'Is require:'");
 };
-{#line 3621 no_op
+{#line 3865 no_op
 Test::More::ok(Basset::Template->no_op, "No op");
 Test::More::is(Basset::Template->no_op, 1, "No op is 1");
 my $obj = Basset::Template->new();
@@ -1481,31 +1588,31 @@ Test::More::ok($obj, "Got object");
 Test::More::ok($obj->no_op, "Object no ops");
 Test::More::is($obj->no_op, 1, "Object no op is 1");
 };
-{#line 3645 system_prefix
+{#line 3889 system_prefix
 Test::More::is(Basset::Template->system_prefix(), '__b_', 'expected system prefix');
 };
-{#line 3677 privatize
+{#line 3921 privatize
 Test::More::ok(! Basset::Template->privatize, 'Cannot privatize w/o method');
 Test::More::is(Basset::Template->errcode, "BO-24", "proper error code");
 
 Test::More::is(Basset::Template->privatize('foo'), '__b_foo', "privatized foo");
 Test::More::is(Basset::Template->privatize('__b_foo'), '__b_foo', "__b_foo remains __b_foo");
 };
-{#line 3715 deprivatize
+{#line 3959 deprivatize
 Test::More::ok(! Basset::Template->deprivatize, 'Cannot deprivatize w/o method');
 Test::More::is(Basset::Template->errcode, "BO-25", "proper error code");
 
 Test::More::is(Basset::Template->deprivatize('foo'), 'foo', "deprivatized foo");
 Test::More::is(Basset::Template->deprivatize('__b_foo'), 'foo', "deprivatized __b_foo");
 };
-{#line 3748 deprivatize
+{#line 3992 deprivatize
 Test::More::ok(! Basset::Template->is_private, 'Cannot is_private w/o method');
 Test::More::is(Basset::Template->errcode, "BO-26", "proper error code");
 
 Test::More::ok(! Basset::Template->is_private('foo'), 'foo is not private');
 Test::More::ok(Basset::Template->is_private('__b_foo'), '__b_foo is private');
 };
-{#line 3807 cast
+{#line 4047 cast
 package Basset::Test::Testing::Basset::Template::cast::Subclass1;
 our @ISA = qw(Basset::Template);
 
@@ -1541,7 +1648,7 @@ Test::More::is($o2->pkg, "Basset::Template", "original part of super package");
 Test::More::is($c2->pkg, $subclass, "casted object part of sub package");
 Test::More::is($c2->errcode, $o->errcode, "error codes match, rest is assumed");
 };
-{#line 3907 errortranslator
+{#line 4150 errortranslator
 my $uses_real = Basset::Template->use_real_errors();
 Test::More::is(Basset::Template->use_real_errors(0), 0, "Uses real errors");
 
@@ -1556,7 +1663,7 @@ Test::More::is(Basset::Template->usererror(), 'test message', 'Re-wrote error me
 
 Test::More::is(Basset::Template->errortranslator($uses_real), $uses_real, 'Class reset uses real error');
 };
-{#line 3939 use_real_errors
+{#line 4182 use_real_errors
 my $translator = Basset::Template->errortranslator();
 Test::More::ok(Basset::Template->errortranslator(
 	{
@@ -1612,7 +1719,7 @@ Test::More::is(Basset::Template->errortranslator($translator), $translator, 'Cla
 #Test::More::ok('foo', 'bar');
 Test::More::is($cfg->{"Basset::Template"}->{'use_real_errors'} = $uses_real, $uses_real, "enables reset uses real errors");
 };
-{#line 4021 delegate
+{#line 4264 delegate
 my $o = Basset::Template->new();
 Test::More::ok($o, "Set up object");
 my $o2 = Basset::Template->new();
@@ -1622,7 +1729,7 @@ Test::More::is(scalar $o->delegate($o2), $o2, "Object set delegate");
 Test::More::is(scalar $o->delegate(), $o2, "Object accessed delegate");
 Test::More::is(scalar $o->delegate(undef), undef, "Object deleted delegate");
 };
-{#line 4054 types
+{#line 4297 types
 Test::More::ok(Basset::Template->types, "Got types out of the conf file");
 my $typesbkp = Basset::Template->types();
 my $newtypes = {%$typesbkp, 'testtype1' => 'Basset::Template', 'testtype2' => 'boguspkg'};
@@ -1632,7 +1739,7 @@ Test::More::is(Basset::Template->pkg_for_type('testtype1'), 'Basset::Template', 
 Test::More::ok(! scalar Basset::Template->pkg_for_type('testtype2'), "Could not access invalid type");
 Test::More::is(Basset::Template->types($typesbkp), $typesbkp, "Re-set original types");
 };
-{#line 4083 restrictions
+{#line 4326 restrictions
 package Basset::Test::Testing::Basset::Template::restrictions::subclass1;
 our @ISA = qw(Basset::Template);
 
@@ -1648,7 +1755,7 @@ Test::More::ok($restrictions, 'made restrictions');
 Test::More::is(Basset::Test::Testing::Basset::Template::restrictions::subclass1->restrictions($restrictions), $restrictions, 'added restrictions');
 Test::More::is(Basset::Test::Testing::Basset::Template::restrictions::subclass1->restrictions, $restrictions, 'accessed restrictions');
 };
-{#line 4107 applied_restrictions
+{#line 4350 applied_restrictions
 package Basset::Test::Testing::Basset::Template::applied_restrictions::Subclass;
 our @ISA = qw(Basset::Template);
 
@@ -1697,7 +1804,7 @@ Test::More::ok(ref $restrictions eq 'ARRAY', 'applied restrictions are an array'
 Test::More::is(scalar @$restrictions, 1, "Subclass has 1 restriction");
 Test::More::is($restrictions->[0], 'specialerror', 'Correct restriction in place');
 };
-{#line 4173 restricted
+{#line 4416 restricted
 package Basset::Test::Testing::Basset::Template::restricted::Subclass1;
 our @ISA = qw(Basset::Template);
 
@@ -1712,7 +1819,7 @@ Test::More::ok($subclass2, "Restricted Basset::Test::Testing::Basset::Template::
 Test::More::ok($subclass->restricted, "Subclass is restricted");
 Test::More::ok($subclass2->restricted, "Subclass is restricted");
 };
-{#line 4237 exceptions
+{#line 4480 exceptions
 my $confClass = Basset::Template->pkg_for_type('conf');
 Test::More::ok($confClass, "Got conf");
 
@@ -1725,7 +1832,7 @@ Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0, "disables except
 Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0, "enables exceptions");
 Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = $exceptions, $exceptions, "reset exceptions");
 };
-{#line 4266 last_exception
+{#line 4509 last_exception
 my $o = Basset::Template->new();
 Test::More::ok($o, "Got object");
 

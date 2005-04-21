@@ -1,6 +1,6 @@
 package Basset::NotificationCenter;
 
-#Basset::NotificationCenter, copyright and (c) 2004 James A Thomason III
+#Basset::NotificationCenter, copyright and (c) 2004, 2005 James A Thomason III
 #Basset::NotificationCenter is distributed under the terms of the Perl Artistic License.
 
 =pod

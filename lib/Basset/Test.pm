@@ -1,6 +1,6 @@
 package Basset::Test;
 
-#Basset::Test, copyright and (c) 2004 James A Thomason III
+#Basset::Test, copyright and (c) 2004, 2005 James A Thomason III
 
 =pod
 

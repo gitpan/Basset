@@ -1,6 +1,6 @@
 package Basset::DB;
 
-#Basset::DB 2002, 2003, 2004 James A Thomason III
+#Basset::DB 2002, 2003, 2004, 2005 James A Thomason III
 #Basset::DB is distributed under the terms of the Perl Artistic License.
 
 $VERSION = '1.01';

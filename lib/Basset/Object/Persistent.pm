@@ -131,43 +131,6 @@ $test->is($o->loading(), $a, 'read value of loading  - arrayref');
 
 __PACKAGE__->add_attr('loading');
 
-=item loaded_from_cache
-
-boolean flag, 1/0.
-
-This flag tells you whether this object was loaded from the object cache. For efficiency's sake, you can specify a path
-to an object cache directory and store objects in the cache in addition to committing them to the database. You will then be
-able to laod the object from the cache and avoid the over-head of going to the database.
-
-This flag specifies if the object came from the cache. This flag is set internally, and you should only read it.
-
-=cut
-
-=pod
-
-=begin btest(loaded_from_cache)
-
-my $o = __PACKAGE__->new();
-$test->ok($o, "Got object");
-$test->is(scalar(__PACKAGE__->loaded_from_cache), undef, "could not call object method as class method");
-$test->is(__PACKAGE__->errcode, "BO-08", "proper error code");
-$test->is(scalar($o->loaded_from_cache), 0, 'loaded_from_cache is 0');
-$test->is($o->loaded_from_cache('abc'), 'abc', 'set loaded_from_cache to abc');
-$test->is($o->loaded_from_cache(), 'abc', 'read value of loaded_from_cache - abc');
-my $h = {};
-$test->ok($h, 'got hashref');
-$test->is($o->loaded_from_cache($h), $h, 'set loaded_from_cache to hashref');
-$test->is($o->loaded_from_cache(), $h, 'read value of loaded_from_cache  - hashref');
-my $a = [];
-$test->ok($a, 'got arrayref');
-$test->is($o->loaded_from_cache($a), $a, 'set loaded_from_cache to arrayref');
-$test->is($o->loaded_from_cache(), $a, 'read value of loaded_from_cache  - arrayref');
-
-=end btest(loaded_from_cache)
-
-=cut
-
-__PACKAGE__->add_attr('loaded_from_cache');
 
 =item committing
 
@@ -341,55 +304,6 @@ __PACKAGE__->add_trickle_class_attr('grouptables');
 
 =pod
 
-=item cache_object
-
-Boolean flag, 1/0.
-
-This is a flag that governs whether object caching is enabled or disabled. Set it to 1 to enable object caching, set it to 0 to
-disable object caching.
-
-If this is 0, you must specify a cache_object_dir.
-
-This should be set in your conf file.
-
-=cut
-
-=pod
-
-=begin btest(cache_object)
-
-=end btest(cache_object)
-
-=cut
-
-__PACKAGE__->add_trickle_class_attr('cache_object');
-
-=pod
-
-=item cache_object_dir
-
-This attribute specifies the location where cached objects should be stored. Should be an absolute path ending in a trailing slash.
-
-This should be set in your conf file.
-
-define package Basset::Object::Persistent
-cache_object		= 1
-cache_object_dir	= /path/to/cached/objects/
-
-=cut
-
-=pod
-
-=begin btest(cache_object_dir)
-
-=end btest(cache_object_dir)
-
-=cut
-
-__PACKAGE__->add_class_attr('cache_object_dir');
-
-=pod
-
 =item arbitrary_selectables
 
 This should be set in the conf file. This is a regular expression that specifies which queries arbitary_sql
@@ -492,7 +406,6 @@ $test->is($o->committing, 0, "committing is 0");
 $test->is($o->committed, 0, "committed is 0");
 $test->is($o->deleting, 0, "deleting is 0");
 $test->is($o->deleted, 0, "deleted is 0");
-$test->is($o->loaded_from_cache, 0, 'loaded_from_cache is 0');
 $test->is(ref($o->instantiated_relationships), 'HASH', 'instantiated_relationships is hashref');
 $test->is($o->tied_to_parent, 0, 'tied_to_parent is 0');
 $test->is($o->should_be_committed, 0, 'should_be_committed is 0');
@@ -506,14 +419,11 @@ $test->is(ref($o->_deleted_relationships), 'ARRAY', '_deleted_relationships is a
 sub init {
 	my $self = shift;
 
-	my %init = @_;
-
 	return $self->SUPER::init(
-		'loading'						=> $init{'loading'} || 0,
-		'loaded'						=> $init{'loaded'} || 0,
-		'committing'					=> $init{'committing'} || 0,
-		'committed'						=> $init{'committed'} || 0,
-		'loaded_from_cache'				=> 0,
+		'loading'						=> 0,
+		'loaded'						=> 0,
+		'committing'					=> 0,
+		'committed'						=> 0,
 		'deleting'						=> 0,
 		'deleted'						=> 0,
 		'instantiated_relationships'	=> {},
@@ -521,7 +431,7 @@ sub init {
 		'should_be_committed'			=> 0,
 		'should_be_deleted'				=> 0,
 		'_deleted_relationships'		=> [],
-		%init,
+		@_,
 	);
 
 };
@@ -565,9 +475,8 @@ sub _keyed_accessor {
 		my $val = shift;
 		my $valid = shift || 0;
 		if (defined $val && ! $valid && ! $self->loading) {
-			eval "use $class" unless $INC{$self->module_for_class($class)};
-			my $obj = $class->exists($val);
-			unless ($obj) {
+			$self->load_pkg($class) or return;
+			unless ( $class->exists($val) ) {
 				return $self->error("Cannot store value $val - object does not exist for $class", "BOP-48");
 			}
 		};
@@ -576,6 +485,72 @@ sub _keyed_accessor {
 		return $self->$prop();
 	}
 }
+
+=pod
+
+=item add_wrapper
+
+Basset::Object::Persistent adds two new wrapper types - on_load and on_commit.
+
+For example,
+
+ Some::Class->add_wrapper('on_commit', 'username', sub {
+	my $self = shift;
+	my $ptr = shift;
+	my $rc = shift;
+	return lc $rc;
+ });
+
+This will cause the username method to be shortcircuited only when the object is committed. In its place,
+it returns the username in lowercase. It is equivalent to the following:
+
+ # we need a wrapper here, since conditionals get arguments and we don't want to stomp on the ->committing value.
+ sub is_committing { return shift->committing };
+
+ Some::Class->add_wrapper('after', 'username', sub { return lc shift->username }, 'is_committing');
+
+That is to say, it creates a new after wrapper to change the username, but executes a conditional to only execute
+the wrapper if the object is being committed.
+
+Using the on_commit wrapper type is preferrable due to speed considerations. Using the conditional wrapper as
+an after wrapper will cause the conditional to constantly be evaluated. Since most of the time, when accessing
+username you are not committing, the constant checking is wasteful. The on_commit wrapper is hence more efficient.
+
+It accomplishes this by creating a new method called "on_commit_username" (on_commit_ + (name of method)) that is
+just an alias for username and it then calls that upon commit.
+
+on_load works similiarly. Note that on_load receives 5 arguments - the class, the pointer to the original attribute,
+the return code from the original attribute, the name of the method being loaded, and the value being loaded. on_commit
+only receives the object, the pointer, and the return code.
+
+=cut
+
+sub add_wrapper {
+	my $class = shift;
+	my $type		= shift or return $class->error("Cannot add wrapper w/o type", "BO-31");
+	my $attribute	= shift or return $class->error("Cannot add wrapper w/o attribute", "BO-32");
+
+	if ($type =~ /^on_(load|commit)$/) {
+
+		my $action = $1;
+
+		$class->create_on_star_methods($attribute) or return;
+
+		$type = 'after';
+		$attribute = "on_${action}_$attribute";
+	}
+
+	return $class->SUPER::add_wrapper($type, $attribute, @_);
+
+}
+
+=pod
+
+=begin btest(add_wrapper)
+
+=end btest(add_wrapper)
+
+=cut
 
 =pod
 
@@ -601,7 +576,8 @@ call for a Basset::DB::Table object (or whatever you've specified as your table 
 
 See Basset::DB::Table for more information. This table is the primary table where the object's data is stored.
 
-B<This method is deprecated. Use add_tables instead.>
+This method is a wrapper around add_tables with a single table ->factory call on the 'table' type, but it also
+explicitly wipes out the tables list before setting the primary table.
 
 =cut
 
@@ -626,18 +602,12 @@ sub add_primarytable {
 
 		my %init	= @_;
 
-		$table	= $class->factory('type' => 'table', %init) or return;
+		$table	= $class->factory('type' => 'table', @_) or return;
 
-		$create_attributes = $init{'create_attributes'};
 	}
 
-	#$class->primary_table($table);
 	$class->tables([]);
 	$class->add_tables($table);
-
-	if ($create_attributes) {
-		$class->auto_create_attributes;
-	};
 
 	return $table;
 };
@@ -660,502 +630,63 @@ sub auto_create_attributes {
 
 };
 
-=pod
+sub create_on_star_methods {
+	my $class = shift;
+	my $attribute = shift or return $class->error("Cannot create methods w/o attribute", "XXX");
 
-=item perl_read_translation
+	no strict 'refs';
 
-extra_select gives you the ability to select additional information from a table. And the definition gives you the
-columns you have in that table. But, that information may not necessarily be in optimal form for your usage. Say, for example,
-that your table isn't normalized, and you're embedding an array into a column, 'foo'. In your table, you may have:
+	*{$class . "::on_commit_$attribute"} = sub {
+		return shift->$attribute(@_);
+	} unless $class->can("on_commit_$attribute");
 
- +----------+
- |    foo   |
- +----------+
- | A:B:C:D:E|
- +----------+
+	*{$class . "::on_load_$attribute"} = sub {
+		return $_[2];
+		my $class = shift;
+		my $attribute = shift;
+		my $value = shift;
+		return $value;
+	} unless $class->can("on_load_$attribute");
 
-Now that delimited string is great for your database, but when you get it back into perl, it'd probably be nice to have
-an actual array. That's where perl_read_translation comes into play.
-
- __PACKAGE__->perl_read_translation(
-	{
-		"foo" => 'reader_function'
-	}
- );
-
-When the object is being loaded, the function read_function will be called as a class method (whatever class of object
-you are loading into) and passed 2 arguments - the name of the column being read (which is usually also the name of the
-accessor into which the value is placed), and the value being read. In this case,
-it would be:
-
- $class->reader_function('foo', 'A:B:C:D:E');
-
-An example reader_function could be this:
-
- sub reader_function {
-  my $class = shift;
-  my $method = shift;
-  my $value = shift;
-
-  return [split(/:/, $value)];
- };
-
-Be aware of the fact that you do not yet have an object, so you cannot call any object methods on anything. If you need
-to alter an attributes value based upon the value of another attribute, you'll have to do things the old fashioned way
-by subclassing load and zipping in there yourself. perl_read_translation is only useful for alterring individual snippets
-of data.
-
-The format of the hash is simply "method_name" => coderef.
-
-If no re-write is specified for a given method, then the value that was read from the database will be returned.
-
-It's important to note here that extra_select and db_write_translation are internal to Basset::DB::Table. You don't need
-to do anything different in your code to use them. However, perl_read_translation and perl_write_translation are a different
-matter. Basset::Object::Persistent respects the methods and uses them, but if you write your own load or commit methods, you'll
-need to call either import_from_db or export_to_db, as appropriate.
-
-=cut
-
-=begin btest(perl_read_translation)
-
-my $h = {'foo' => 'bar', 'baz' => 'yee'};
-$test->ok($h, 'got hashref');
-$test->is($h->{'foo'}, 'bar', 'foo is bar');
-$test->is($h->{'baz'}, 'yee', 'baz is yee');
-$test->is(__PACKAGE__->perl_read_translation($h), $h, "Set perl_read_translation");
-$test->is(__PACKAGE__->perl_read_translation(), $h, 'reset perl_read_translation');
-
-=end btest(perl_read_translation)
-
-=cut
-
-__PACKAGE__->add_trickle_class_attr('perl_read_translation', {});
-
-=pod
-
-=item perl_write_translation
-
-The inverse function for perl_read_translation. Same reasoning - sometimes you need to change the form of your data
-before writing it to your table. Using the earlier example, we'll assume you have an attribute 'foo' that contains an arrayref.
-Your table is not normalized, so you want to store the value in a single column.
-
- __PACKAGE__->perl_write_translation(
- 	{
- 		'method' => {
- 			'A' => 'writer_function'
- 		}
- 	}
- );
-
-During commit, the function specified will be called as an object method, and handed two arguments - the name of the method
-and the method's current value.
-
- $obj->writer_function('foo', [qw(A B C D E)]);
-
-An example writer_function could be this:
-
- sub writer_fuction {
-  my $self = shift;
-  my $method = shift;
-  my $value = shift;
-
-  return join(":", @$value);
- };
-
-Be aware of the fact that while methods defined in perl_write_translation are called as object methods, methods defined in
-perl_read_translation are called as class methods. So it is recommended against using values from multiple attributes to serialize
-into one attribute value, unless you really know what you're doing. Otherwise, it could be difficult to read the information
-back out.
-
-The format of the hash is simply "method_name" => {"query_type" => coderef}, where "query_type" follows the same rules
-as those defined for db_write_translation.
-
-If no re-write is specified for a given method, then the value that is presently contained in the method will be written
-to the database.
-
-It's important to note here that extra_select and db_write_translation are internal to Basset::DB::Table. You don't need
-to do anything different in your code to use them. However, perl_read_translation and perl_write_translation are a different
-matter. Basset::Object::Persistent respects the methods and uses them, but if you write your own load or commit methods, you'll
-need to call either import_from_db or export_to_db, as appropriate.
-
-=cut
-
-=begin btest(perl_write_translation)
-
-my $h = {'foo' => 'bar', 'baz' => 'yee'};
-$test->ok($h, 'got hashref');
-$test->is($h->{'foo'}, 'bar', 'foo is bar');
-$test->is($h->{'baz'}, 'yee', 'baz is yee');
-$test->is(__PACKAGE__->perl_write_translation($h), $h, "Set perl_write_translation");
-$test->is(__PACKAGE__->perl_write_translation(), $h, 'reset perl_write_translation');
-
-=end btest(perl_write_translation)
-
-=cut
-
-__PACKAGE__->add_trickle_class_attr('perl_write_translation', {});
-
-
-=pod
-
-=item export_to_db
-
-This is a method you usually won't have to care about, unless you're writing your own low-level commit method to
-take the place of the uber method in Basset::Object::Persistent.
-
-Takes 3 arguments.
-
- $obj->export_to_db($method, $value, $type));
-
- $obj is the object being committed
- $method is the method being called
- $value is the value that is to be written to the databse
- $type is the query type, either 'I', 'U', 'R', 'D', or 'A'
-
-This will return the appropriate value to write to the database. If there is no re-write defined for the
-method in perl_write_translation, then the value $value will be returned. If there is a re-write, then that value
-will be returned instead, depending upon the output of the re-write method.
-
-Note that $method is not always necessarily a method.
-
-This method uses the re-write values defined by perl_write_translation
-
-=cut
-
-=pod
-
-=begin btest(export_to_db)
-
-package Basset::Test::Testing::__PACKAGE__::export_to_db::Subclass1;
-our @ISA = qw(__PACKAGE__);
-
-sub perl1 {
-	return 'perl1';
+	return 1;
 }
 
-sub perl2 {
-	return 'perl2';
-}
+sub add_tables {
+	my $class = shift;
 
-sub perl3 {
-	my $self = shift;
-	my $meth = shift;
-	return uc $self->$meth();
-};
+	return $class->error("Cannot add table w/o tables", "BOP-85") unless @_;
 
-Basset::Test::Testing::__PACKAGE__::export_to_db::Subclass1->add_attr('able');
-Basset::Test::Testing::__PACKAGE__::export_to_db::Subclass1->add_attr('baker');
-Basset::Test::Testing::__PACKAGE__::export_to_db::Subclass1->add_attr('charlie');
-Basset::Test::Testing::__PACKAGE__::export_to_db::Subclass1->add_attr('delta');
+	my @tables = @{$class->tables};
 
-package __PACKAGE__;
+	while (my $table = shift @_) {
+		push @tables, $table;
 
-my $o = __PACKAGE__->new();
-$test->ok($o, "Created object");
+		if ($table->create_attributes) {
 
-my $so = Basset::Test::Testing::__PACKAGE__::export_to_db::Subclass1->new(
-	'able' => 'able_value',
-	'baker' => 'baker_value',
-	'charlie' => 'charlie_value',
-	'delta' => 'delta_value'
-);
-$test->ok($so, "Created object");
+			no strict 'refs';
 
-my $def = {
-	'able' => 'SQL_INTEGER',
-	'baker' => 'SQL_INTEGER',
-	'charlie' => 'SQL_INTEGER',
-	'delta' => 'SQL_INTEGER'
-};
+			my @attributes_to_create = $table->attributes_to_create;
+			foreach my $attribute (@attributes_to_create) {
 
-Basset::Test::Testing::__PACKAGE__::export_to_db::Subclass1->add_tables(
-	__PACKAGE__->factory(
-		'type' => 'table',
-		'definition' => $def
-	)
-);
+				$class->add_attr($attribute);
 
-#$test->is($o->definition($def), $def, "Set definition");
-#$test->is($o->definition, $def, "Got definition");
-
-$test->is(scalar($so->export_to_db()), undef, 'Cannot export_to_db w/o type');
-$test->is($so->errcode, 'BOP-92', 'proper error code for export_to_db (type)');
-$test->is(scalar($so->export_to_db( 'I')), undef, 'Cannot export_to_db w/o method');
-$test->is($so->errcode, 'BOP-93', 'proper error code for export_to_db (method)');
-
-$test->is($so->export_to_db('I', 'able'), 'able_value', 'exports able upon insert');
-$test->is($so->export_to_db('I', 'baker'), 'baker_value', 'exports baker upon insert');
-$test->is($so->export_to_db('I', 'charlie'), 'charlie_value', 'exports charlie upon insert');
-$test->is($so->export_to_db('I', 'delta'), 'delta_value', 'exports delta upon insert');
-
-$test->is($so->export_to_db('U', 'able'), 'able_value', 'exports able upon update');
-$test->is($so->export_to_db('U', 'baker'), 'baker_value', 'exports baker upon update');
-$test->is($so->export_to_db('U', 'charlie'), 'charlie_value', 'exports charlie upon update');
-$test->is($so->export_to_db('U', 'delta'), 'delta_value', 'exports delta upon update');
-
-$test->is($so->export_to_db('R', 'able'), 'able_value', 'exports able upon replace');
-$test->is($so->export_to_db('R', 'baker'), 'baker_value', 'exports baker upon replace');
-$test->is($so->export_to_db('R', 'charlie'), 'charlie_value', 'exports charlie upon replace');
-$test->is($so->export_to_db('R', 'delta'), 'delta_value', 'exports delta upon replace');
-
-$test->is($so->export_to_db('D', 'able'), 'able_value', 'exports able upon delete');
-$test->is($so->export_to_db('D', 'baker'), 'baker_value', 'exports baker upon delete');
-$test->is($so->export_to_db('D', 'charlie'), 'charlie_value', 'exports charlie upon delete');
-$test->is($so->export_to_db('D', 'delta'), 'delta_value', 'exports delta upon delete');
-
-$test->is($so->export_to_db('S', 'able'), 'able_value', 'exports able upon select');
-$test->is($so->export_to_db('S', 'baker'), 'baker_value', 'exports baker upon select');
-$test->is($so->export_to_db('S', 'charlie'), 'charlie_value', 'exports charlie upon select');
-$test->is($so->export_to_db('S', 'delta'), 'delta_value', 'exports delta upon select');
-
-$test->is($so->export_to_db('A', 'able'), 'able_value', 'exports able upon all');
-$test->is($so->export_to_db('A', 'baker'), 'baker_value', 'exports baker upon all');
-$test->is($so->export_to_db('A', 'charlie'), 'charlie_value', 'exports charlie upon all');
-$test->is($so->export_to_db('A', 'delta'), 'delta_value', 'exports delta upon all');
-
-my $translator = {
-	'able' => {
-		'I' => 'perl1',
-	},
-	'baker' => {
-		'U' => 'perl2',
-	},
-	'charlie' => {
-		'R' => 'perl3',
-	},
-	'delta' => {
-		'D' => 'perl1',
-	},
-};
-
-$test->is($o->perl_write_translation($translator), $translator, 'set translator for perl_write_translation');
-
-$test->is($so->export_to_db('I', 'able'), 'perl1', 'exports able upon insert');
-$test->is($so->export_to_db('I', 'baker'), 'baker_value', 'exports baker upon insert');
-$test->is($so->export_to_db('I', 'charlie'), 'charlie_value', 'exports charlie upon insert');
-$test->is($so->export_to_db('I', 'delta'), 'delta_value', 'exports delta upon insert');
-
-$test->is($so->export_to_db('U', 'able'), 'able_value', 'exports able upon update');
-$test->is($so->export_to_db('U', 'baker'), 'perl2', 'exports baker upon update');
-$test->is($so->export_to_db('U', 'charlie'), 'charlie_value', 'exports charlie upon update');
-$test->is($so->export_to_db('U', 'delta'), 'delta_value', 'exports delta upon update');
-
-$test->is($so->export_to_db('R', 'able'), 'able_value', 'exports able upon replace');
-$test->is($so->export_to_db('R', 'baker'), 'baker_value', 'exports baker upon replace');
-$test->is($so->export_to_db('R', 'charlie'), 'CHARLIE_VALUE', 'exports charlie upon replace');
-$test->is($so->export_to_db('R', 'delta'), 'delta_value', 'exports delta upon replace');
-
-$test->is($so->export_to_db('D', 'able'), 'able_value', 'exports able upon delete');
-$test->is($so->export_to_db('D', 'baker'), 'baker_value', 'exports baker upon delete');
-$test->is($so->export_to_db('D', 'charlie'), 'charlie_value', 'exports charlie upon delete');
-$test->is($so->export_to_db('D', 'delta'), 'perl1', 'exports delta upon delete');
-
-$test->is($so->export_to_db('S', 'able'), 'able_value', 'exports able upon select');
-$test->is($so->export_to_db('S', 'baker'), 'baker_value', 'exports baker upon select');
-$test->is($so->export_to_db('S', 'charlie'), 'charlie_value', 'exports charlie upon select');
-$test->is($so->export_to_db('S', 'delta'), 'delta_value', 'exports delta upon select');
-
-$test->is($so->export_to_db('A', 'able'), 'able_value', 'exports able upon all');
-$test->is($so->export_to_db('A', 'baker'), 'baker_value', 'exports baker upon all');
-$test->is($so->export_to_db('A', 'charlie'), 'charlie_value', 'exports charlie upon all');
-$test->is($so->export_to_db('A', 'delta'), 'delta_value', 'exports delta upon all');
-
-my $translator2 = 	{
-		'able' => {
-			'S' => 'perl1',
-		},
-		'baker' => {
-			'A' => 'perl2'
-		},
-		'charlie' => {
-			'I' => 'perl3',
-			'A' => 'perl1',
-		},
-	};
-
-$test->is($o->perl_write_translation($translator2), $translator2, 'set translator for perl_write_translation');
-
-$test->is($so->export_to_db('I', 'able'), 'able_value', 'exports able upon insert');
-$test->is($so->export_to_db('I', 'baker'), 'perl2', 'exports baker upon insert');
-$test->is($so->export_to_db('I', 'charlie'), 'CHARLIE_VALUE', 'exports charlie upon insert');
-$test->is($so->export_to_db('I', 'delta'), 'delta_value', 'exports delta upon insert');
-
-$test->is($so->export_to_db('U', 'able'), 'able_value', 'exports able upon update');
-$test->is($so->export_to_db('U', 'baker'), 'perl2', 'exports baker upon update');
-$test->is($so->export_to_db('U', 'charlie'), 'perl1', 'exports charlie upon update');
-$test->is($so->export_to_db('U', 'delta'), 'delta_value', 'exports delta upon update');
-
-$test->is($so->export_to_db('R', 'able'), 'able_value', 'exports able upon replace');
-$test->is($so->export_to_db('R', 'baker'), 'perl2', 'exports baker upon replace');
-$test->is($so->export_to_db('R', 'charlie'), 'perl1', 'exports charlie upon replace');
-$test->is($so->export_to_db('R', 'delta'), 'delta_value', 'exports delta upon replace');
-
-$test->is($so->export_to_db('D', 'able'), 'able_value', 'exports able upon delete');
-$test->is($so->export_to_db('D', 'baker'), 'perl2', 'exports baker upon delete');
-$test->is($so->export_to_db('D', 'charlie'), 'perl1', 'exports charlie upon delete');
-$test->is($so->export_to_db('D', 'delta'), 'delta_value', 'exports delta upon delete');
-
-$test->is($so->export_to_db('S', 'able'), 'perl1', 'exports able upon select');
-$test->is($so->export_to_db('S', 'baker'), 'perl2', 'exports baker upon select');
-$test->is($so->export_to_db('S', 'charlie'), 'perl1', 'exports charlie upon select');
-$test->is($so->export_to_db('S', 'delta'), 'delta_value', 'exports delta upon select');
-
-$test->is($so->export_to_db('A', 'able'), 'able_value', 'exports able upon all');
-$test->is($so->export_to_db('A', 'baker'), 'perl2', 'exports baker upon all');
-$test->is($so->export_to_db('A', 'charlie'), 'perl1', 'exports charlie upon all');
-$test->is($so->export_to_db('A', 'delta'), 'delta_value', 'exports delta upon all');
-
-=end btest(export_to_db)
-
-=cut
-
-sub export_to_db {
-	my $self	= shift;
-	my $type	= shift or return $self->error("Cannot export_to_db w/o type", "BOP-92");
-
-	my @methods	= @_ or return $self->error("Cannot export_to_db w/o method", "BOP-93");
-
-	my $perl_write_translation = $self->perl_write_translation;
-
-	$self->wipe_errors;
-
-	foreach my $method (@methods) {
-
-		if (defined $perl_write_translation->{$method}) {
-
-			if (defined $perl_write_translation->{$method}->{$type}){
-				my $translator =  $perl_write_translation->{$method}->{$type};
-				$method = $self->$translator($method);
 			}
-			elsif (defined $perl_write_translation->{$method}->{'A'}){
-				my $translator =  $perl_write_translation->{$method}->{'A'};
-				$method = $self->$translator($method);
-			} else {
-				$method = $self->$method();
-			}
-		} else {
-			$method = $self->$method();
+		}	#end if create_attributes
+
+		#but we always need to make the on_load and on_commit methods
+		my @attributes = $table->alias_column($table->cols);
+		foreach my $attribute (@attributes) {
+
+			$class->create_on_star_methods($attribute) or return;
+
 		}
 
-		my $errcode = $self->errcode;
-		return if defined $errcode && $errcode eq 'BOP-95';	#cannot export - no value for key!
-	}
+	} #end while tables
 
-	return wantarray ? @methods : $methods[0];
+	$class->tables(\@tables);
 
-	#return $value;
-
-};
-
-=item import_from_db
-
-This is a method you usually won't have to care about, unless you're writing your own low-level load method to
-take the place of the uber method in Basset::Object::Persistent.
-
-Takes 4 arguments.
-
- $class->import_from_db($method, $value);
-
- $class is the class of the object being created
- $method is the method being called
- $value is the value that was read from the databse
-
-This will return the appropriate value to hand into the attribute. If there is no re-write defined for the
-method in perl_read_translation, then the value $value will be returned. If there is a re-write, then that value
-will be returned instead, depending upon the output of the re-write method.
-
-Note that $method is not always necessarily a method.
-
-This is associated with the values defined in perl_read_translation
-
-=cut
-
-=pod
-
-=begin btest(import_from_db)
-
-my $subclass = 'Basset::Test::Testing::__PACKAGE__::import_from_db::Subclass1';
-
-package Basset::Test::Testing::__PACKAGE__::import_from_db::Subclass1;
-our @ISA = qw(__PACKAGE__);
-
-sub perl1 {
-	return 'perl1';
+	return 1;
 }
-
-sub perl2 {
-	return 'perl2';
-}
-
-sub perl3 {
-	return uc $_[2];
-};
-
-package __PACKAGE__;
-
-my $o = __PACKAGE__->new();
-$test->ok($o, "Created object");
-
-my $def = {
-	'able' => 'SQL_INTEGER',
-	'baker' => 'SQL_INTEGER',
-	'charlie' => 'SQL_INTEGER',
-	'delta' => 'SQL_INTEGER'
-};
-
-$subclass->add_tables(
-	__PACKAGE__->factory(
-		'type' => 'table',
-		'definition' => $def
-	)
-);
-
-#$test->is($o->definition($def), $def, "Set definition");
-#$test->is($o->definition, $def, "Got definition");
-
-$test->is(scalar($subclass->import_from_db()), undef, 'Cannot import_from_db w/o class');
-$test->is($subclass->errcode, 'BOP-94', 'proper error code for import_from_db (method)');
-
-$test->is($subclass->import_from_db('able', 'able_value'), 'able_value', 'imports able');
-$test->is($subclass->import_from_db('baker', 'baker_value'), 'baker_value', 'imports baker');
-$test->is($subclass->import_from_db('charlie', 'charlie_value'), 'charlie_value', 'imports charlie');
-$test->is($subclass->import_from_db('delta', 'delta_value'), 'delta_value', 'imports delta');
-
-$test->is($subclass->import_from_db('able', undef), undef, 'imports undef value');
-
-my $translator = {
-	'able' => 'perl1',
-	'baker' => 'perl2',
-	'charlie' => 'perl3',
-};
-
-$test->is($o->perl_read_translation($translator), $translator, 'set perl_read_translation');
-
-$test->is($subclass->import_from_db('able', 'able_value'), 'perl1', 'imports able');
-$test->is($subclass->import_from_db('baker', 'baker_value'), 'perl2', 'imports baker');
-$test->is($subclass->import_from_db('charlie', 'charlie_value'), 'CHARLIE_VALUE', 'imports charlie');
-$test->is($subclass->import_from_db('delta', 'delta_value'), 'delta_value', 'imports delta');
-
-$test->is($subclass->import_from_db('able', undef), 'perl1', 'imports translated undef value');
-$test->is($subclass->import_from_db('delta', undef), undef, 'imports translated undef value');
-
-=end btest(import_from_db)
-
-=cut
-
-sub import_from_db {
-	my $class	= shift;
-	my $method	= shift or return $class->error("Cannot import_from_db w/o method", "BOP-94");
-	my $value	= shift;
-
-	if (my $translator = $class->perl_read_translation->{$method}) {
-		return $class->$translator($method, $value);
-	}
-	else {
-		return $value;
-	};
-
-};
 
 =pod
 
@@ -1185,23 +716,6 @@ associated with this object when it is stored to the database.
 See Basset::DB::Table for more information.
 
 =cut
-
-sub add_tables {
-	my $class = shift;
-
-	return $class->error("Cannot add table w/o tables", "BOP-85") unless @_;
-
-	my @tables = @{$class->tables};
-
-	while (my $table = shift @_) {
-		push @tables, $table;
-	}
-
-	$class->tables(\@tables);
-
-	return 1;
-}
-
 
 =pod
 
@@ -1486,14 +1000,6 @@ or this
 
 =cut
 
-=pod
-
-=begin btest(instantiate)
-
-=end btest(instantiate)
-
-=cut
-
 sub instantiate {
 
 	my $self					= shift;
@@ -1503,7 +1009,6 @@ sub instantiate {
 
 	if ($self->is_instantiated($prop)) {
 		$self->notify("warnings", "object already instantiated");
-	#	return $self->$prop();
 	};
 
 	my $relationships = $self->relationships;
@@ -1512,35 +1017,19 @@ sub instantiate {
 		or return $self->error("Cannot instantiate $prop : not relationship", "BOP-73");
 
 	my $table = $relationship_data->{'table'};
+	$table = $table->[0] if ref $table eq 'ARRAY';
 	my $fclass = $relationship_data->{'class'};
-	
-	{
-		local $@ = undef;
-		eval "use $fclass" unless $INC{$self->module_for_class($fclass)};
-		return $self->error("Cannot have many : cannot load class $fclass : $@", "BOP-79") if $@;
-	};
 
-	my (@foreign_cols, @referencing_cols);
+	$self->load_pkg($fclass) or return;
 
-
-	{
-		my @tmp = $self->relationship_columns($prop) or return;
-		@referencing_cols = @{$tmp[0]};
-		@foreign_cols = @{$tmp[1]};
-	}
+	my ($referencing_cols, $foreign_cols) = $self->relationship_columns($prop) or return;
 
 	return $self->error("Cannot instantiate - parent and child tables do not reference each other", "BOP-91")
-		unless @foreign_cols && @referencing_cols;
+		unless @$foreign_cols && @$referencing_cols;
 
-	foreach my $col (@referencing_cols) {
-		my $attr = $table->alias_column($col);
-		if (defined $relationships->{$attr} && $relationships->{$attr}->{'instantiating'} eq 'lazy') {
-			$attr = $self->privatize($attr);
-		};
-		push @values, $self->$attr();
-	}
+	push @values, map {$self->$_()} $table->alias_column(@$referencing_cols);
 
-	my $where = join(' AND ', map {"$_ = ?"} @foreign_cols);
+	my $where = join(' AND ', map {"$_ = ?"} @$foreign_cols);
 
 	if ($clauses->{'where'}) {
 		$clauses->{'where'} .= " AND ($where)";
@@ -1550,86 +1039,34 @@ sub instantiate {
 
 	my $instantiated = $clauses->{'value'} || $relationship_data->{'class'}->load_all(
 		{
-			%$clauses,
-			'singleton' => $relationship_data->{'singleton'},
 			'key'		=> $relationship_data->{'key'},
+			'constructor' => {
+				'tied_to_parent' => $relationship_data->{'tied_to_parent'}
+			},
+			%$clauses,
 		},
 		@values
 	) or return $self->error($relationship_data->{'class'}->errvals);
 
-	$self->$prop($instantiated, 'breaker');
+	if ($relationship_data->{'singleton'}) {
+		$instantiated = $instantiated->[0];
+	}
+
+	$self->$prop($instantiated);
 
 	$self->instantiated_relationships->{$prop}++;
-
-	# Now the fun begins. If it's a singleton, then after one object has has this attribute
-	# instantiated, we re-wire the class so they all access it through this new method.	
-	if ($relationship_data->{'singleton'}) {
-
-		no strict 'refs';
-		no warnings;
-
-		foreach my $method (@referencing_cols) {
-
-			#we are the class
-			my $class = $self->pkg;
-	
-			my @parents = reverse @{$class->isa_path};
-
-			# however, there's an edge case - if we're a subclass trying to instantiate. Then everything
-			# needs to happen in the parent.
-			foreach my $parent (@parents) {
-				if (*{$parent . "::$method"}{'CODE'}) {
-					$class = $parent;
-					last;
-				}
-			}
-
-			my $private = $class->privatize("private_$method");
-
-			unless ($class->can($private)) {
-
-				if (*{$class . "::$method"}{'CODE'}) {
-					*{$class . "::$private"} = *{$class . "::$method"}{'CODE'};
-				} else {
-					$class->add_attr($private);
-				}
-
-				my $referenced = $table->nonqualified_name($table->referenced_column($method));
-
-				*{$class . "::$method"} = sub {
-					my $self	= shift;
-
-					if (@_) {
-						#$self->uninstantiate($prop);
-						my $ret = $self->$private(@_);
-						$self->$prop(undef);
-						$self->instantiate($prop) if $self->is_instantiated($prop);
-						return $ret;
-					} else {
-						if ($self->is_instantiated($prop)) {
-							my $object = $self->$prop();
-
-							if (! defined $object || $object->deleted) {
-								return;
-							} else {
-								my $return = $object->$referenced();
-								return defined $return
-									? $return
-									: $self->error("No key for object (->$prop) (object method $referenced)", "BOP-95");
-							}
-						} else {
-							return $self->$private(@_);
-						};
-					}
-				}
-			}
-
-		}
-	} #end if singleton
 
 	return $instantiated;
 
 };
+
+=pod
+
+=begin btest(instantiate)
+
+=end btest(instantiate)
+
+=cut
 
 
 =pod
@@ -1643,9 +1080,9 @@ sub uninstantiate {
 	my $self = shift;
 	my $prop = shift or return $self->error("Cannot uninstantiate w/o prop", "BOP-96");
 
-	delete $self->instantiated_relationships->{$prop};	
-
 	$self->$prop(undef);
+
+	delete $self->instantiated_relationships->{$prop};
 
 	return 1;
 }
@@ -1716,66 +1153,30 @@ sub _instantiating_accessor {
 	my $prop = shift;
 	my $instantiating_method = shift;
 
-	return $self->error("Not a class attribute", "BO-08") unless ref $self;
+	#got me. Perl 5.6 seems to require I yank this out, since it's a tied hashref.
+	my $h = $self->relationships->{$instantiating_method};
 
-	#upon mutation, we just return what we set it to.
+	#upon mutation, we'll consider that as good as an instantiation.
 	if (@_) {
-		my $new_val = shift;
-		my $breaker = shift || 0;
-		my $relationship_data = $self->relationships->{$instantiating_method};
+		$self->$prop(shift);
 
-		if ($breaker || ! $relationship_data->{'singleton'}) {
-			$self->$prop($new_val) || return;
-		} else {
-			$self->instantiate(
-				$instantiating_method,
-				{
-					'value' => $new_val
-				}
-			) || return;
-		}
+		$self->instantiated_relationships->{$instantiating_method}++;
 
-		return $new_val;
-	}
-	elsif ($self->is_instantiated($prop)) {
 		return $self->$prop();
-	} else {
-		my $relationship_data = $self->relationships->{$instantiating_method};
-		my $clauses = {
-			'tied_to_parent' => $relationship_data->{'accessibility'} eq 'private'
-				? 1
-				: 0,
-		};
-
-		return $self->instantiate($instantiating_method, $clauses);
 	}
-
-};
-
-sub _verifying_instantiating_accessor {
-	my $self = shift;
-	my $prop = shift;
-	my $instantiating_method = shift;
-
-	if (@_) {
-		my $new_val = shift;
-		my $breaker = shift || 0;
-		if ($breaker) {
-			$self->$prop($new_val) || return;
-		} else {
-			$self->instantiate(
-				$instantiating_method,
-				{
-					'value' => $new_val,
-				}
-			) || return;
-		}
-		return $new_val;
-	} elsif ($self->is_instantiated($prop)) {
-		return $self->$prop(@_);
-	} else {
-		return $self->error("Cannot access $instantiating_method : not yet instantiated", "BOP-97");
-	};
+	#otherwise, instantiate if we're a lazy load
+	elsif ($h->{'instantiating'} eq 'lazy') {
+		$self->instantiate($instantiating_method) unless $self->is_instantiated($instantiating_method);
+		return $self->$prop();
+	}
+	#otherwise, if it's instantiated, we return it.
+	elsif ($self->is_instantiated($instantiating_method)) {
+		return $self->$prop();
+	}
+	#finally, we can't do anything, so we bomb out
+	else {
+		return $self->error("Cannot access $instantiating_method : not instantiated", "XXX");
+	}
 }
 
 =pod
@@ -1947,6 +1348,8 @@ uses those same relationship keys.
 
 =cut
 
+__PACKAGE__->add_class_attr('bridge_classes', {});
+
 sub has_many {
 	my $class 			= shift;
 
@@ -1962,26 +1365,42 @@ sub has_many {
 	my $accessibility	= $init->{'accessibility'} || 'public';
 	my $table			= $init->{'table'} || $class->primary_table;
 	my $relationship_key= $init->{'relationship_key'};
-	my $transform		= $init->{'transform'};
 	my $foreign_has_a	= $init->{'foreign_has_a'};
 
-	#{
-	#	local $@ = undef;
-	#	eval "use $fclass" unless $INC{$class->module_for_class($fclass)};
-	#	return $class->error("Cannot have many : cannot load class $fclass : $@", "BOP-79") if $@;
-	#};
+	if (ref $fclass eq 'ARRAY') {
+		my $bridgekey = join(',', @$fclass);
 
-	if ($instantiating eq 'lazy') {
-		$class->add_attr([$attribute, '_instantiating_accessor'], $attribute);
-	} else {
-		 $class->add_attr([$attribute, '_verifying_instantiating_accessor'], $attribute);
-		#$class->add_attr($attribute);	
+		if (defined $class->bridge_classes->{$bridgekey}) {
+			$fclass = $class->bridge_classes->{$bridgekey};
+		}
+		else {
+
+			my $loadclass = pop @$fclass;
+
+			$class->load_pkg($loadclass) or return;
+
+			my $inclass = $loadclass->inline_class;
+
+			foreach my $c (@$fclass) {
+				$class->load_pkg($c) or return;
+				$inclass->add_tables(@{$c->tables});
+			};
+
+			$table = [$table, $fclass->[0]->primary_table];
+
+			$class->bridge_classes->{$bridgekey} = $fclass = $inclass;
+		}
 	}
 
-	#need to copy out and reset so that it gets properly trickled.
-	my %many = %{$class->relationships};
+	$class->add_attr([$attribute, '_instantiating_accessor'], $attribute);
 
-	$many{$attribute} = {
+#	if ($instantiating eq 'lazy') {
+#		$class->add_attr([$attribute, '_instantiating_accessor'], $attribute);
+#	} else {
+#		 $class->add_attr([$attribute, '_verifying_instantiating_accessor'], $attribute);	
+#	}
+
+	$class->relationships->{$attribute} = {
 		'class'				=> $fclass,
 		'key'				=> $key,
 		'singleton'			=> $singleton,
@@ -1990,12 +1409,8 @@ sub has_many {
 		'accessibility'		=> $accessibility,
 		'table'				=> $table,
 		'relationship_key'	=> $relationship_key,
-		'transform'			=> $transform,
 		'foreign_has_a'		=> $foreign_has_a,
 	};
-
-	$class->relationships(\%many);
-
 
 	unless ($singleton) {
 		$class->create_add_to_method($attribute) or return;
@@ -2024,7 +1439,9 @@ Is equivalent to:
 
  my $bagel = Some::Bagel::Class->new(
  	'type' => 'chocolate chip',
- 	'id' => 
+ 	'id' => '17738',
+ 	'store_id' => $store->id,
+ );
 
 =cut
 
@@ -2051,18 +1468,20 @@ sub create_add_to_method {
 
 			my $table = $relationship_data->{'table'};
 
-			my @tmp = $self->relationship_columns($attribute) or return;
-			my @referencing_cols = @{$tmp[0]};
-			my @foreign_cols = @{$tmp[1]};
+			my ($referencing_cols, $foreign_cols) = $self->relationship_columns($attribute) or return;
 
-			foreach my $col (@referencing_cols) {
-				my $foreign = $table->nonqualified_name(shift @foreign_cols);
+			foreach my $col (@$referencing_cols) {
+				my $foreign = $table->nonqualified_name(shift @$foreign_cols);
 				my $attr = $table->alias_column($col);
 				$init{$foreign} = $self->$attr();
 			}
 
 			$obj = $relationship_data->{'class'}->new(%init) or 
 				return $self->error($relationship_data->{'class'}->errvals);
+		}
+
+		if ($relationship_data->{'accessibility'} eq 'private') {
+			$obj->tied_to_parent(1);
 		}
 
 		if (my $key = $relationship_data->{'key'}) {
@@ -2155,12 +1574,10 @@ sub commit_relationships {
 
 			my $table = $relationship_data->{'table'};
 
-			my @tmp = $self->relationship_columns($rel) or return;
-			my @referencing_cols = @{$tmp[0]};
-			my @foreign_cols = @{$tmp[1]};
+			my ($referencing_cols, $foreign_cols) = $self->relationship_columns($rel) or return;
 
-			foreach my $col (@referencing_cols) {
-				my $foreign = $table->nonqualified_name(shift @foreign_cols);
+			foreach my $col (@$referencing_cols) {
+				my $foreign = $table->nonqualified_name(shift @$foreign_cols);
 				my $attr = $table->alias_column($col);
 				$obj->$foreign($self->$attr());
 			}
@@ -2343,42 +1760,45 @@ sub relationship_columns {
 		($table, $ftable) = @$table;
 	};
 
-	my (@foreign_cols, @referencing_cols);
+	my ($foreign_cols, $referencing_cols);
 
+	# if we have a foreign_has_a defined, then the fclass->us is a 1-many. So we can just grab the relationship
+	# columns on the foreign table -> us and be done with it.
 	if ($relationship_data->{'foreign_has_a'}) {
 		my $fclass = $relationship_data->{'class'};
 		my $foreign_relationship_method = $relationship_data->{'foreign_has_a'};
-		my $foreign_relationship = $fclass->relationships->{$foreign_relationship_method}
-			or return $self->error($fclass->errvals);
 
 		#we flip the columns! their foreign are our referencing and vice-versa.
-		my ($foreign_cols, $referencing_cols) = $fclass->relationship_columns($foreign_relationship_method)
+		($foreign_cols, $referencing_cols) = $fclass->relationship_columns($foreign_relationship_method)
 			or return $self->error($fclass->errvals);
 
-		@foreign_cols = @$foreign_cols;
-		@referencing_cols = @$referencing_cols;
 	}
+	#next, if we have a relationship_key, then we point to the foreign table a lot of times, but we only
+	#keep track of the values in the key
 	elsif ($relationship_data->{'relationship_key'}) {
-		@referencing_cols = ref $relationship_data->{'relationship_key'} eq 'ARRAY'
+		@$referencing_cols = ref $relationship_data->{'relationship_key'} eq 'ARRAY'
 			? @{$relationship_data->{'relationship_key'}}
-			: $relationship_data->{'relationship_key'};
-		if (ref $referencing_cols[0] eq 'ARRAY') {
-			@foreign_cols = @{$referencing_cols[1]};
-			@referencing_cols = @{$referencing_cols[0]};
+			: ($relationship_data->{'relationship_key'});
+		if (ref $referencing_cols->[0] eq 'ARRAY') {
+			@$foreign_cols = @{$referencing_cols->[1]};
+			@$referencing_cols = @{$referencing_cols->[0]};
 		} else {
-			@foreign_cols = map {$table->referenced_column($_)} @referencing_cols;		
+			@$foreign_cols = map {$table->referenced_column($_)} @$referencing_cols;		
 		}
 	}
+	#next, if it's a singleton, it's easy. We have a column in our table pointing to a primary key in theirs.
 	elsif ($relationship_data->{'singleton'}) {
-		@referencing_cols = $table->foreign_cols($ftable);
-		@foreign_cols = map {$table->referenced_column($_)} @referencing_cols;
-	} else {
-		@foreign_cols = $ftable->foreign_cols($table);
-		@referencing_cols = map {$table->nonqualified_name($ftable->referenced_column($_))} @foreign_cols;
-		@foreign_cols = map {$ftable->qualified_name($_)} @foreign_cols;
+		@$referencing_cols = $table->foreign_cols($ftable);
+		@$foreign_cols = map {$table->referenced_column($_)} @$referencing_cols;
+	}
+	#finally, still easy, it's a has_many, so they have a column in their table pointing to us.
+	else {
+		@$foreign_cols = $ftable->foreign_cols($table);
+		@$referencing_cols = map {$table->nonqualified_name($ftable->referenced_column($_))} @$foreign_cols;
+		@$foreign_cols = map {$ftable->qualified_name($_)} @$foreign_cols;
 	}
 
-	return (\@referencing_cols, \@foreign_cols);
+	return ($referencing_cols, $foreign_cols);
 
 }
 
@@ -2477,7 +1897,7 @@ sub commit {
 	$self->committed(0);
 	$self->committing(1);
 
-	$self->begin() or return;
+	$self->begin() or return $self->fatalerror($self->errvals);
 
 	$self->cleanup() or return $self->fatalerror($self->errvals);
 
@@ -2501,7 +1921,7 @@ sub commit {
 				}
 			) or return $self->fatalerror($table->errvals);
 
-			my @values = $self->export_to_db('U', $table->alias_column($table->update_bindables)) or return $self->fatalerror($self->errvals);
+			my @values = map {my $meth = "on_commit_$_"; $self->$meth()} $table->alias_column($table->update_bindables) or return $self->fatalerror($self->errvals);
 
 			$self->arbitrary_sql(
 				'query' => $query,
@@ -2516,7 +1936,7 @@ sub commit {
 
 			my $insert_query = $table->insert_query or return $self->fatalerror($table->errvals);
 
-			my @values = $self->export_to_db('I', $table->alias_column($table->insert_bindables)) or return $self->fatalerror($self->errvals);
+			my @values = map {my $meth = "on_commit_$_"; $self->$meth()} $table->alias_column($table->insert_bindables) or return $self->fatalerror($self->errvals);
 
 			$self->arbitrary_sql(
 				'query' => $insert_query,
@@ -2555,11 +1975,6 @@ sub commit {
 	#and it's in the database
 	$self->in_db(1);
 
-	#cache the object, if so desired
-	if ($self->cache_object()){
-		$self->commit_cached_object();
-	};
-
 	my $primary_identifier = join(',', $self->pkg, map {defined $_ ? $_ : ''} @{$self->primary_identifier('all')});
 	my $load_cache = $self->central_load_cache;
 	unless (defined $load_cache->{$primary_identifier}) {
@@ -2573,19 +1988,7 @@ sub commit {
 
 	return $self;
 
-};
-
-=pod
-
-=item load_from_db
-
-Sometimes, when using cache_object, you may still wish to load the object from the database instead of from cache.
-In those cases, call load_from_db() instead of load().
-
-Internally, this is done by temporarily flipping off caching, loading, then turning it back on (or leaving it off if it was
-off previously).
-
-=cut
+}
 
 =pod
 
@@ -2805,31 +2208,9 @@ sub writable_method {
 
 =pod
 
-=begin btest(load_from_db)
-
-=end btest(load_from_db)
-
-=cut
-
-sub load_from_db {
-	my $class = shift;
-
-	my $caching = $class->cache_object();
-
-	$class->cache_object(0);
-
-	my $obj = $class->load(@_);
-
-	$class->cache_object($caching);
-
-	return $obj;
-};
-
-=pod
-
 =item load
 
-the load method loads an object from the database (or the cache if cache_object is true). The arguments passed must be the
+the load method loads an object from the database. The arguments passed must be the
 primary_column specified in your primary table, in that order.
 
  __PACKAGE__->add_primarytable(
@@ -2867,28 +2248,16 @@ Returns an error if no object found that matches
 sub load {
 	my $class	= shift;
 
-	my $id 		= shift;
-
-	return $class->error("Cannot load with no ID!", "BOP-09") unless defined $id;
-
-	#if we're allowing caching, try to load from the cache
-	if ($class->cache_object()){
-		my $obj = $class->load_cached_object($id, @_);
-		return $obj if $obj;
-	};
+	return $class->error("Cannot load with no ID!", "BOP-09") unless @_;
 
 	my $table	= $class->primary_table or return $class->error("Cannot load with no table", "BOP-01");
 
-	my $data = undef;
+	my %input = ();
+	@input{$table->primary_cols} = @_;
 
-	my $name = $table->name;
+	return $class->load_where([%input], {'singleton' => 1});
 
-	my $where = join(' and ', map {"$name.$_ = ?"} $table->primary_cols);
-
-	# ->load() just calls load_all with the appropriate where clause to restrict just to this object,
-	# and it loads a single object.
-	return $class->load_all({'where' => $where, 'singleton' => 1}, $id, @_);
-};
+}
 
 =pod
 
@@ -3122,9 +2491,16 @@ sub load_all {
 		$clauses	= shift;
 		@args		= @_;
 	};
-
 	#my $table	= $class->primary_table or return $class->error("Cannot load with no table", "BOP-01");
-	my $tables = $class->tables;
+	my $tables = $class->tables;	
+
+	my $omit_tables = undef;
+
+	if ($clauses->{'tables'}) {
+		$tables = [@{$class->tables}, @{$clauses->{'tables'}}];
+		$omit_tables	= $clauses->{'tables'};
+		delete $clauses->{'tables'};
+	}
 
 	return $class->error("Cannot load with no table", "BOP-01") unless @$tables;
 
@@ -3148,12 +2524,15 @@ sub load_all {
 	my $transform = $clauses->{'transform'};
 	delete $clauses->{'transform'};
 
-	#my $query	= $table->attach_to_query(
+	my $in_query = $clauses->{'in_query'};
+	delete $clauses->{'in_query'};
+
 	my $tableClass = $class->pkg_for_type('table') or return;
 
 	my $multiselect_query = $tableClass->multiselect_query(
-		'tables'		=> $tables,
-		'use_aliases'	=> 1,
+		'tables'					=> $tables,
+		'omit_columns_from_tables'	=> $omit_tables,
+		'use_aliases'				=> 1,
 	) or return $class->error($tableClass->errvals);
 
 	my $query	= $tableClass->attach_to_query(
@@ -3180,13 +2559,10 @@ sub load_all {
 
 	while (my $stuff = $stmt->fetchrow_hashref('NAME_lc')){
 
-		# we want to make sure that all of our keys are lower case (since that's what our methods are)
-		# and we also want to make sure that no undefined keys are passed in, since Basset::Object's init
-		# method would end up throwing an error on that.
-		$stuff = {map {$_, $class->import_from_db($_, $stuff->{$_})} grep {defined $stuff->{$_}} keys %$stuff};
-#		$stuff = {map {lc $_, $stuff->{$_}} grep {defined $stuff->{$_}} keys %$stuff};
-		#print map {"$_ : $stuff->{$_}\n"} sort keys %$stuff;
-		my $obj = $class->new(%$stuff, %$constructor, 'loaded' => 1, 'loading' => 1, 'in_db' => 1) or return $class->error("Cannot create object : " . $class->error, "BOP-06");
+		$stuff = {map {my $meth = "on_load_$_"; $_, $class->$meth($_, $stuff->{$_})} keys %$stuff};
+
+		my $obj = $class->new(%$stuff, %$constructor, 'loaded' => 1, 'loading' => 1, 'in_db' => 1)
+			or return $class->error("Cannot create object : " . $class->error, "BOP-06");
 		$obj->loading(0);
 
 		my $primary_identifier = join(',', $obj->pkg, map {defined $_ ? $_ : ''} @{$obj->primary_identifier('all')});
@@ -3209,10 +2585,6 @@ sub load_all {
 		};
 
 		push @objs, $obj;
-
-		if ($class->cache_object && ! $obj->existing_cached_object) {
-			$obj->commit_cached_object();
-		};
 
 		if ($iterated) {
 			return $obj;
@@ -3293,116 +2665,6 @@ sub exists {
 
 };
 
-# used internally by commit, this method will commit the object to the object cache
-
-=pod
-
-=begin btest(commit_cached_object)
-
-=end btest(commit_cached_object)
-
-=cut
-
-sub commit_cached_object {
-	my $self = shift;
-
-	my $table		= $self->primary_table or return $self->error("Cannot commit with no table", "BOP-01");
-	my $cache_dir	= $self->cache_object_dir or return $self->error("Cannot cache w/o cachedir", "BOP-28");
-	my $cols		= join(',', map {my $temp = $self->$_(); $temp =~ s/[\/:]/,/g; $temp} map {$table->alias_column($_)} $table->primary_cols());
-
-	my $temp_committed	= $self->committed();
-	$self->committed(0);
-
-	my $temp_pkg		= $self->pkg();
-	my $ancestor		= $self->nonrestricted_parent();
-
-
-	(my $class = $ancestor) =~ s/::/,/;
-
-	bless $self, $ancestor;
-
-	my $cache_handle = $self->gen_handle;
-	open ($cache_handle, ">" . $cache_dir . $cols . '-,' . $class . '.cache');
-	print $cache_handle $self->dump;
-	close $cache_handle;
-
-	$self->committed($temp_committed);
-
-	bless $self, $temp_pkg;
-
-	return $self;
-};
-
-#used internally by load, this method will load an object from the cache
-
-=pod
-
-=begin btest(load_cached_object)
-
-=end btest(load_cached_object)
-
-=cut
-
-sub load_cached_object {
-	my $class = shift;
-
-	(my $disk_class = $class) =~ s/::/,/;
-
-	my $cache_dir	= $class->cache_object_dir or return $class->error("Cannot load from cache w/o cachedir", "BOP-31");
-	my $cols		= join(',', map {my $temp = $_; $temp =~ s/[\/:]/,/g; $temp} @_);
-
-	my $cache_handle = $class->gen_handle;
-	if (open ($cache_handle, $cache_dir . $cols . '-,' . $disk_class . '.cache')){
-		local $/ = undef;
-		my $data = <$cache_handle>;
-		local $@ = undef;
-		$data =~ /^(\$\w+)/;
-		my $obj = eval qq{
-			my $1;
-			eval \$data;
-		};
-		if ($@){
-			return $class->error("Could not evaluate object : $@", "BOP-30");
-		}
-		else {
-			$obj->loaded(1);
-			$obj->loaded_from_cache(1);
-			return $obj;
-		};
-	};
-
-	return $class->error("No cached object to load", "BOP-29");
-
-};
-
-#used internally by commit to determine if an object exists in the cache
-
-=pod
-
-=begin btest(existing_cached_object)
-
-=end btest(existing_cached_object)
-
-=cut
-
-sub existing_cached_object {
-	my $self = shift;
-
-	(my $class = $self->pkg) =~ s/::/,/;
-
-	my $table		= $self->primary_table or return $self->error("Cannot commit with no table", "BOP-01");
-	my $cache_dir	= $self->cache_object_dir or return $self->error("Cannot cache w/o cachedir", "BOP-28");
-	my $cols		= join(',', map {my $temp = $self->$_(); $temp =~ s/[\/:]/,/g; $temp} map {$table->alias_column($_)} $table->primary_cols());
-
-	if (-e $cache_dir . $cols . '-,' . $class . '.cache') {
-		return 1;
-	}
-	else {
-		return $self->error('No cache file', 'BOP-32');
-	};
-
-};
-
 =pod
 
 =item delete
@@ -3450,7 +2712,7 @@ sub delete {
 		}
 	) or return $self->error($table->errvals);
 
-	my @values = $self->export_to_db('D', $table->alias_column($table->delete_bindables)) or return;
+	my @values = map {$self->$_()} $table->alias_column($table->delete_bindables) or return;
 
 	$self->arbitrary_sql(
 		'query'	=> $query,
@@ -3580,7 +2842,10 @@ sub load_where {
 		@clauses = @{$clauses[0]};
 	}
 
-	my ($clause, @values) = $class->primary_table->construct_where_clause($class->tables, @clauses);
+	my ($clause, @values) = $class->primary_table->construct_where_clause(
+		[@{$class->tables}, $additional_clauses->{'tables'} ? @{$additional_clauses->{'tables'}} : ()],
+		@clauses
+	);
 
 	return $class->error($class->primary_table->errvals) unless defined $clause;
 
@@ -3707,7 +2972,7 @@ sub arbitrary_sql {
 	if ($selecting_query) {
 		$self->begin() or return;
 	}
-	
+
 	my $errormethod = $selecting_query ? 'error' : 'fatalerror';
 
 	my $stmt = $init{'stmt'} || $driver->prepare_cached($init{'query'})
@@ -3812,6 +3077,8 @@ __PACKAGE__->add_class_attr('_last_driver_access');
 sub driver {
 	my $self = shift;
 
+	return $self->local_driver if $self->local_driver;
+
 	if (@_) {
 		return $self->_driver(shift);
 	} elsif (my $driver = $self->_driver) {
@@ -3837,6 +3104,47 @@ sub driver {
 		return $self->_driver($driver);
 	}
 };
+
+=pod
+
+=item local_driver
+
+Normally, you're always talking to one database with all of your objects in all of your classes. And in a perfect world, that would
+always be the case. However, you may need to speak to more than one database at a time, and that's where local_driver comes in. Much like
+->error, this is a method that may be called on either an object or a class to specify a localized driver for that class or object.
+
+To make all Sub::Class objects talk to a different database:
+
+ Sub::Class->local_driver(
+ 	Sub::Class->factory(
+ 		'type' => 'driver',
+ 		'dsn' => 'dbi:Pg:dbname=otherdatabase'
+ 	)
+ );
+
+To make just one talk to a different database:
+
+ my $obj = Sub::Class->new(
+ 	'local_driver' => Sub::Class->factory(
+ 		'type' => 'driver',
+ 		'dsn' => 'dbi:Pg:dbname=otherdatabase'
+ 	)
+ );
+
+B<Please note> that you are expected to maintain a local driver yourself - it will not be pinged, cleaned up, removed, or anything. You, the
+programmer, are inserting in a special case and are expected to pick up after yourself.
+ 
+=cut
+
+__PACKAGE__->add_trickle_class_attr('_pkg_local_driver');
+__PACKAGE__->add_attr('_obj_local_driver');
+
+sub local_driver {
+	my $self = shift;
+	my $localmethod	= ref $self	? "_obj_local_driver"	: "_pkg_local_driver";
+	
+	return $self->$localmethod(@_);
+}
 
 =pod
 
@@ -4051,9 +3359,6 @@ method is empty and does nothing. It's designed to be used in subclasses in loca
 an object after it's loaded from the database and set up properly. Say if you do further initialization
 or load in from an object or something.
 
-This is effectively analogous to Basset::DB::Table's perl_read_translation method, but applicable to the object as a whole,
-not merely to an individual table
-
 =cut
 
 =pod
@@ -4075,9 +3380,6 @@ sub setup {
 The cleanup method is called immediately before the object is committed in commit. Basset::Object::Persistent's
 method is empty and does nothing. It's designed to be used in subclasses in locations where you need to alter something in
 an object immediately before it's committed to the database.
-
-This is effectively analogous to Basset::DB::Table's perl_write_translation method, but applicable to the object as a whole,
-not merely to an individual table
 
 =cut
 

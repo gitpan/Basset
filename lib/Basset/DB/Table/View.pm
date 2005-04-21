@@ -112,10 +112,6 @@ $test->is($o->select_query(), $a, 'read value of select_query  - arrayref');
 
 =end btest
 
-=cut
-
-=pod
-
 =back
 
 =cut

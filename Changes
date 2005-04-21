@@ -1,5 +1,34 @@
 Revision history for Basset
 
+1.01	04/20/2005
+		+ Basset::DB::Table
+			- added attributes_to_create, attributes_not_to_create, create_attributes flags
+			- added omit_columns_from_tables flag to multiselect_query
+			- qualify_name now accepts an array of colum names
+		+ Basset::Object::Persistent
+			- removed options and methods to cache objects (cache_object flag, etc.)
+			- removed perl_read_translation/perl_write_translation & import_from_db/export_to_db
+			  they are replaced with wrappers.
+			- added the on_load_* and on_commit_* methods
+			- Now expects attributes to be populated from Basset::DB::Table objects
+			- cleaned up the relationship and instantiation code
+			- load now uses load_where
+			- load_all can accept the in_query flag.
+			- added the local_driver attribute
+			- has_many will now subclass rlt tables on the fly
+		+ Basset::Object
+			- exceptions now croak instead of dying (requires Carp)
+			- Now uses Basset::Container::Hash for hashes in trickled class attributes.
+			- New instantiator
+			- Uses an import method to read in class defaults from the conf file
+			- attributes using an internal accessor now use the attribute value itself
+			  as the internal key inside the hash.
+			- error now takes a 4th argument to always die with an exception
+			- added wrappers
+			- added the load_pkg method to load up a class
+			- slightly faster initializer
+		* minor bug fixes, speed boosts, tweaks
+			
 1.00    04/20/2004
         Initial public release. More good things to come later.
 
