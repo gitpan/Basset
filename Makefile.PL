@@ -9,6 +9,9 @@ WriteMakefile(
     ABSTRACT_FROM       => 'lib/Basset/Object.pm',
     PREREQ_PM => {
         'Test::More' => 0,
+	'Data::Dumper' => 0,
+	'File::Temp' => 0,
+	'Carp'	=> 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'Basset-*' },

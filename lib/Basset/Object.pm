@@ -11,11 +11,9 @@ Basset::Object - used to create objects
 
 =head1 AUTHOR
 
-Jim Thomason, jim@bassetsoftware.com
+Jim Thomason, jim@jimandkoka.com
 
 =head1 DESCRIPTION
-
-More information at http://www.bassetsoftware.com/
 
 This is my ultimate object creation toolset to date. It has roots in Mail::Bulkmail, Text::Flowchart, and the
 unreleased abstract object constructors that I've tooled around with in the past.
@@ -27,10 +25,12 @@ interface vs. the rest of the system. That'll confuse people and make them unhap
 to be consistent. Of course, you may not like these objects, but they do work well and are consistent. Consistency is
 very important in interface design, IMHO.
 
+Please read the tutorials at L<http://www.bassetsoftware.com/perl/basset/tutorial/>.
+
 =cut
 
 
-$VERSION = '1.00';
+$VERSION = '1.02';
 
 sub _conf_class {return 'Basset::Object::Conf'};
 BEGIN {eval 'use ' . _conf_class()};
@@ -708,7 +708,6 @@ sub add_trickle_class_attr {
 		}
 
 		if (ref $attr eq 'HASH' && $class ne $internalpkg) {
-			#print "FAKE HASH HERE SOMEHOW! ($class, $method, $internalpkg)\n";
 			tie my %empty, 'Basset::Container::Hash', $attr;
 			$class->add_trickle_class_attr($method, \%empty);
 			return $class->$method();
@@ -810,8 +809,7 @@ sub add_default_class_attr {
 # All internal accessor methods should behave similarly, read the documentation for add_attr for more information
 
 sub _accessor {
-	my $self = shift;
-	my $prop = shift;
+	my ($self, $prop) = splice(@_,0,2);
 
 	return $self->error("Not a class attribute", "BO-08", 0, 'DIE DIE DIE') unless ref $self;
 
@@ -2317,6 +2315,7 @@ $test->ok(! __PACKAGE__->restricted(), "Superclass is not restricted");
 =cut
 
 our $restrict_counter	= 0;
+our %inlined = ();
 
 sub inline_class {
 	my $pkg = shift;
@@ -2324,8 +2323,9 @@ sub inline_class {
 	no strict 'refs';
 	my $class = $pkg . '::BASSETINLINE::R' . $restrict_counter++;
 	@{$class . "::ISA"} = ($pkg);
-	$INC{$pkg->module_for_class($class)}++;
 	$class->restricted(1);
+	
+	$inlined{$class}++;
 
 	return $class;
 };
@@ -2337,7 +2337,7 @@ sub load_pkg {
 	my $errorless = shift || 0;
 
 	local $@ = undef;
-	eval "use $newclass" unless $INC{$class->module_for_class($newclass)};
+	eval "use $newclass" unless $inlined{$newclass} || $INC{$class->module_for_class($newclass)};
 	
 	if ($@) {
 		return $errorless ? undef : $class->error("Cannot load class ($newclass) : $@", "BO-29");
@@ -2768,8 +2768,9 @@ sub init {
 #	foreach my $method (keys %init){
 #		my $value = $init{$method};
 	while (@init) {
-		my $method = shift @init;
-		my $value = shift @init;
+		my ($method, $value) = splice(@init, 0, 2);
+		#my $method = shift @init;
+		#my $value = shift @init;
 
 		if ($self->can($method)){
 #			$self->wipe_errors();
@@ -3054,15 +3055,10 @@ sub pkg_for_type {
 
 	my $pkg = $types->{$abstype};
 
-	if (ref $pkg) {
-		return $pkg->[0];
-	};
-
 	if (defined $pkg) {
 
 		return unless $class->load_pkg($pkg, $errorless);
 		
-		$types->{$abstype} = [$pkg, 1];
 		return $pkg;
 
 	} else {

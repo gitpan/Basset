@@ -1,5 +1,27 @@
 Revision history for Basset
 
+1.02	05/06/2005
+		+ Basset::DB
+			- added the recreate_handle method
+		+ Basset::Object::Persistent
+			- minor optimizations
+			- added a few omitted error codes
+			- newly overriden copy method
+			- fixed a bug where primary columns wouldn't always be aliased
+			- replaced explicit load_all calls with load_where calls
+			- added load_one_where
+			- driver now doesn't ping on the command line, always pings in mod_perl
+		+ Basset::Object
+			- minor optimizations
+			- inlined classes no longer muck up %INC
+			- pkg_for_type no longer caches
+		+ Basset::Template
+			- moved the default attribute definitions out of the conf file and into the module.
+			  (smaller default conf file, values can still be overridden in conf)
+		+ Basset::Machine
+			- added
+		+ Basset::Machine::State
+			- added
 1.01	04/20/2005
 		+ Basset::DB::Table
 			- added attributes_to_create, attributes_not_to_create, create_attributes flags

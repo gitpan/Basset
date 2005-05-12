@@ -30,7 +30,7 @@ Okay, so you want to write a template. It's going to need a few things. Code, va
  in: /path/to/template.tpl
 
  %% foreach my $age (1..5) {
- 	<% $name %> is now <% $age %><% "\n" %>
+ 	<@-- $name --@> is now <@-- $age --@><@-- "\n" --@>
  %% };
 
 Then, your code can be:
@@ -46,7 +46,7 @@ Then, your code can be:
  	}
  ) || $template->error;
 
-Voila. All done. Note that %% starts a code line which goes to the end. <% %> delimits a variable to
+Voila. All done. Note that %% starts a code line which goes to the end. <@-- --@> delimits a variable to
 be inserted. Also be aware that any white space between code blocks or variable insertion blocks will be stripped.
 That's why we have that "\n" in a variable insertion block - it puts in a new line. We don't end up with 2 newlines
 because the actual newline is stripped.
@@ -68,7 +68,7 @@ Damn near everything is configurable. Read on for more information.
 
 =cut
 
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 use Basset::Object;
 @ISA = qw(Basset::Object);
@@ -89,35 +89,35 @@ B<Note that all attributes should be set in the conf file>
 In a template, the simplest thing that you're going to want to do is embed a value. Say you have $x = 7 and want to display
 that. Your template could be:
 
- $x = <% $x %>
+ $x = <@-- $x --@>
 
 Which, when processed, would print:
 
  $x = 7
 
-In this case, <% is your open_return_tag and %> is your close_return_tag. These should be specified in your
+In this case, <@-- is your open_return_tag and --@> is your close_return_tag. These should be specified in your
 conf file, but may be alterred on a per-object basis (if you're a real masochist).
 
 Also note that side effects are handled correctly:
 
- $x is now : <% ++$x %>, and is still <% $x %>;
+ $x is now : <@-- ++$x --@>, and is still <@-- $x --@>;
 
  evaluates to :
  $x is now : 8, and is still 8
 
 And that you may do extra processing here, if you'd like. The final value is the one returned.
 
- <% $x++; $x = 18; $x %>
+ <@-- $x++; $x = 18; $x --@>
 
  evaluates to :
  18
 
-Defaults are <% and %>
+Defaults are <@-- and --@>
 
 =cut
 
-__PACKAGE__->add_attr('open_return_tag');
-__PACKAGE__->add_attr('close_return_tag');
+__PACKAGE__->add_attr('open_return_tag', '<%');
+__PACKAGE__->add_attr('close_return_tag', '%>');
 
 =item open_eval_tag, close_eval_tag
 
@@ -127,7 +127,7 @@ the eval tags come into play. The defaults are "%%" and "\n".
 For example:
 
  %% foreach my $x (1..5) {
- 	<% $x %>
+ 	<@-- $x --@>
  %% };
 
 evalutes to:
@@ -153,8 +153,8 @@ Comments will be stripped before the template is displayed. See also open_commen
 
 =cut
 
-__PACKAGE__->add_attr('open_eval_tag');
-__PACKAGE__->add_attr('close_eval_tag');
+__PACKAGE__->add_attr('open_eval_tag', '%%');
+__PACKAGE__->add_attr('close_eval_tag', "\n");
 
 =pod
 
@@ -191,8 +191,8 @@ Much cleaner.
 
 =cut
 
-__PACKAGE__->add_attr('big_open_eval_tag');
-__PACKAGE__->add_attr('big_close_eval_tag');
+__PACKAGE__->add_attr('big_open_eval_tag', "<code>");
+__PACKAGE__->add_attr('big_close_eval_tag', "</code>");
 
 =pod
 
@@ -204,33 +204,33 @@ embed comments via the eval_tags, it's less than ideal.
  %% # this is a comment
  <code> #this is a comment </code>
 
-So we have our comment tags, which default to <# and #>
+So we have our comment tags, which default to <#-- and --#>
 
- <# this is a comment that will be stripped out well before you see the processed template #>
+ <#-- this is a comment that will be stripped out well before you see the processed template --#>
 
 =cut
 
-__PACKAGE__->add_attr('open_comment_tag');
-__PACKAGE__->add_attr('close_comment_tag');
+__PACKAGE__->add_attr('open_comment_tag', "<#");
+__PACKAGE__->add_attr('close_comment_tag', "#>");
 
 =pod
 
 =item open_include_tag, close_include_tag
 
 You may want to include another template inside your current template. That's accomplished with include tags,
-which default to <& and &>
+which default to <&-- and --&>
 
  This is my template.
- Here is a subtemplate : <& /path/to/subtemplate.tpl &>
+ Here is a subtemplate : <&-- /path/to/subtemplate.tpl --&>
 
 There are two ways to include a subtemplate - with passed variables and without. Passing without variables is easy -
 we just did that up above.
 
- <& /path/to/subtemplate.tpl &>
+ <&-- /path/to/subtemplate.tpl --&>
 
 Passing with variables is also easy, just give it a hashref.
 
-<& /path/to/subtemplate.tpl {'var1' => \$var1, 'var2' => \$var2, 'var3' => \$var3} &>
+<&-- /path/to/subtemplate.tpl {'var1' => \$var1, 'var2' => \$var2, 'var3' => \$var3} --&>
 
 And voila. All set. Same rules apply for passing in variables as applies for the process method. You may break the include
 statement over multiple lines, if so desired.
@@ -242,8 +242,8 @@ the supertemplate, nor does the supertemplate have access to the subtemplate's v
 
 =cut
 
-__PACKAGE__->add_attr('open_include_tag');
-__PACKAGE__->add_attr('close_include_tag');
+__PACKAGE__->add_attr('open_include_tag', "<&");
+__PACKAGE__->add_attr('close_include_tag', "&>");
 
 =pod
 
@@ -254,7 +254,7 @@ webserver doc root is: /home/users/me/public_html/mysite.com/
 
 Now, when you include files, you don't want to have to do:
 
- <& /home/users/me/public_html/mysite.com/someplace/mysubtemplate.tpl &>
+ <&-- /home/users/me/public_html/mysite.com/someplace/mysubtemplate.tpl --&>
 
 because that's messy and very non-portable. So just set a document_root.
 
@@ -262,13 +262,13 @@ because that's messy and very non-portable. So just set a document_root.
 
 and voila:
 
- <& /someplace/mysubtemplate.tpl &>
+ <&-- /someplace/mysubtemplate.tpl --&>
 
 Note that this only affects subtemplates set with an absolute path. So even with that doc root, these includes are
 unaffected:
 
- <& someplace/mysubtemplate.tpl &>
- <& ~/someplace/mysubtemplate.tpl &>
+ <&-- someplace/mysubtemplate.tpl --&>
+ <&-- ~/someplace/mysubtemplate.tpl --&>
 
 =cut
 
@@ -305,8 +305,8 @@ Debug tags will only be executed if allows_debugging is 1.
 
 =cut
 
-__PACKAGE__->add_attr('open_debug_tag');
-__PACKAGE__->add_attr('close_debug_tag');
+__PACKAGE__->add_attr('open_debug_tag', "<debug>");
+__PACKAGE__->add_attr('close_debug_tag', "</debug>");
 
 =pod
 
@@ -417,7 +417,7 @@ eval tag.
 
 Just be warned that it escapes all HTML, so something like this:
 
- <% $user->special ? '<b>' : ''>This is bold if you're special<% $user->special ? '</b>' : '' %>
+ <@-- $user->special ? '<b>' : ''>This is bold if you're special<@-- $user->special ? '</b>' : '' --@>
 
 would no longer work if escape_html is turned on.
 
@@ -492,7 +492,7 @@ sub return_to_eval {
 	#$val =~ /^(.*;)?(?:return\s*)?([^;]+)$/s;
 
 	# yuck. As you can see from the earlier regex, this used to be a lot cleaner. But it would
-	# fail on one case - <% ';' %> (and its variants)
+	# fail on one case - <@-- ';' --@> (and its variants)
 	# $1 would contain (';) and $2 would contain (') instead of $2 correctly containing (';')
 	#
 	# So that's bad.
@@ -501,7 +501,7 @@ sub return_to_eval {
 	# allow for quoted semi colons. In short, it's as many non quotes as you want, followed by anything
 	# quoted that you'd like, followed by as many semi colons as you want. That all gets stuffed into $1
 	#
-	# But there was one more problem. <% 'foo'; %> Tacking on an unnecessary trailing semi-colon at the end
+	# But there was one more problem. <@-- 'foo'; --@> Tacking on an unnecessary trailing semi-colon at the end
 	# that tosses things into $1 again. bad bad bad.
 	#
 	# That was originally handled by placing [^;] into $2, but we couldn't do that since ';' should be in $2
@@ -917,7 +917,7 @@ process returns the completed, processed, done template.
 
 The hashref contains the values to be populated into the template. Assume your template is:
 
- Hello, <% $name %>
+ Hello, <@-- $name --@>
 
 Then you may process it as:
 
@@ -1033,7 +1033,7 @@ __END__
 
  %% my $old_age = 0;
  %% foreach my $age (1..5) {
- 	I was <% $old_age %>, but now I am <% $age %>.
+ 	I was <@-- $old_age --@>, but now I am <@-- $age --@>.
  	%% $old_age = $age;
  %% };
 
@@ -1056,8 +1056,8 @@ __END__
  template
  --------
 
- Hello there, <% $name %>.
- I see that you are <% $admin ? '' : 'not' %> an admin.
+ Hello there, <@-- $name --@>.
+ I see that you are <@-- $admin ? '' : 'not' --@> an admin.
  %% if ($admin) {
  	You may do administrative things.
  %% } else {
@@ -1089,7 +1089,7 @@ __END__
 
  <select name = "foo">
  	%% while (my ($key, $val) = each %foo) {
- 		<option value = "<% $val %>"><% $key %></option>
+ 		<option value = "<@-- $val --@>"><@-- $key --@></option>
  	%% };
  </select>
 
@@ -1116,7 +1116,7 @@ __END__
  __DATA__
  <select name = "foo">
  	%% while (my ($key, $val) = each %foo) {
- 		<option value = "<% $val %>"><% $key %></option>
+ 		<option value = "<@-- $val --@>"><@-- $key --@></option>
  	%% };
  </select>
 

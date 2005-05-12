@@ -4737,16 +4737,6 @@ sub qualified_name {
 	return wantarray ? @cols : $cols[0];
 };
 
-sub oqualified_name {
-	my $self = shift;
-	my $column = shift or return $self->error("Cannot qualify name w/o column", "BDT-23");
-	my $name = $self->name or return $self->error("Cannot qualify name w/o table name", "BDT-24");
-
-	return $column if index($column, '.') != -1;
-
-	return $name . '.' . $column;
-}
-
 =pod
 
 =item nonqualified_name
@@ -4900,8 +4890,8 @@ sub construct_where_clause {
 
 		my $value	= shift @clauses;
 		if (ref $value eq 'HASH') {
-			push @relational, keys %$value;
-			push @myvalues, values %$value;
+			push @relational, sort keys %$value;
+			push @myvalues, map {$value->{$_}} sort keys %$value;
 		} else {
 			push @myvalues, $value;
 		};
@@ -5048,17 +5038,17 @@ $test->is(__PACKAGE__->errcode, "BDT-49", 'proper error code');
 {
 	my @return = __PACKAGE__->construct_where_clause($one_table, 'id' => {'>' => 1, '<' => 10});
 	$test->ok(scalar(@return), "got values from constructing where clause");
-	$test->is($return[0], '(t1.id > ? OR t1.id < ?)', 'proper clause');
-	$test->is($return[1], '1', 'proper value');
-	$test->is($return[2], '10', 'proper value');
+	$test->is($return[0], '(t1.id < ? OR t1.id > ?)', 'proper clause');
+	$test->is($return[1], '10', 'proper value');
+	$test->is($return[2], '1', 'proper value');
 }
 
 {
 	my @return = __PACKAGE__->construct_where_clause($one_table, 'id' => {'>' => 1, '<' => 10}, 'name' => 'you');
 	$test->ok(scalar(@return), "got values from constructing where clause");
-	$test->is($return[0], '(t1.id > ? OR t1.id < ?) AND t1.name = ?', 'proper clause');
-	$test->is($return[1], '1', 'proper value');
-	$test->is($return[2], '10', 'proper value');
+	$test->is($return[0], '(t1.id < ? OR t1.id > ?) AND t1.name = ?', 'proper clause');
+	$test->is($return[1], '10', 'proper value');
+	$test->is($return[2], '1', 'proper value');
 	$test->is($return[3], 'you', 'proper value');
 }
 

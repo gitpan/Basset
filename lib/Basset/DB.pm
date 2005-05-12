@@ -3,7 +3,7 @@ package Basset::DB;
 #Basset::DB 2002, 2003, 2004, 2005 James A Thomason III
 #Basset::DB is distributed under the terms of the Perl Artistic License.
 
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 =pod
 
@@ -230,15 +230,7 @@ sub init {
 		$self = $pooledobj;
 	}
 
-	my $h = $self->create_handle(
-		'dsn'			=> $self->dsn,
-		'user'			=> $self->user,
-		'pass'			=> $self->pass,
-		'AutoCommit'	=> 0,
-		#'transactions' => $self->transactions,
-	) or return;
-	
-	$self->handle($h) or return;
+	$self->recreate_handle() or return;
 
 	$self->pool->{$poolkey} = $self;
 
@@ -276,6 +268,37 @@ $test->is($o->handle, $o2->handle, "handles match, due to pooling");
 
 =cut
 
+=pod
+
+=item recreate_handle
+
+recreates the database handle with the original parameters. This will blindly blow away the DBI handle,
+so be careful with this method.
+
+=cut
+
+sub recreate_handle {
+	my $self = shift;
+	
+	my $h = $self->create_handle(
+		'dsn'			=> $self->dsn,
+		'user'			=> $self->user,
+		'pass'			=> $self->pass,
+		'AutoCommit'	=> 0,
+	) or return;
+	
+	$self->failed(0);
+	
+	return $self->handle($h);
+}		
+
+=pod
+
+=begin btest(recreate_handle)
+
+=end btest(recreate_handle)
+
+=cut
 
 =pod
 

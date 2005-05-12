@@ -3,7 +3,7 @@ package Basset::Object::Persistent;
 #Basset::Object::Persistent Copyright and (c) 2000, 2002, 2003, 2004 James A Thomason III
 #Basset::Object::Persistent is distributed under the terms of the Perl Artistic License.
 
-$VERSION = '1.00';
+$VERSION = '1.02';
 
 =pod
 
@@ -426,6 +426,7 @@ sub init {
 		'committed'						=> 0,
 		'deleting'						=> 0,
 		'deleted'						=> 0,
+		'in_db'							=> 0,
 		'instantiated_relationships'	=> {},
 		'tied_to_parent' 				=> 0,
 		'should_be_committed'			=> 0,
@@ -632,7 +633,7 @@ sub auto_create_attributes {
 
 sub create_on_star_methods {
 	my $class = shift;
-	my $attribute = shift or return $class->error("Cannot create methods w/o attribute", "XXX");
+	my $attribute = shift or return $class->error("Cannot create methods w/o attribute", "BOP-92");
 
 	no strict 'refs';
 
@@ -641,11 +642,7 @@ sub create_on_star_methods {
 	} unless $class->can("on_commit_$attribute");
 
 	*{$class . "::on_load_$attribute"} = sub {
-		return $_[2];
-		my $class = shift;
-		my $attribute = shift;
-		my $value = shift;
-		return $value;
+		return $_[2];	# @_ = ($class, $attribute, $value)
 	} unless $class->can("on_load_$attribute");
 
 	return 1;
@@ -1175,7 +1172,7 @@ sub _instantiating_accessor {
 	}
 	#finally, we can't do anything, so we bomb out
 	else {
-		return $self->error("Cannot access $instantiating_method : not instantiated", "XXX");
+		return $self->error("Cannot access $instantiating_method : not instantiated", "BOP-93");
 	}
 }
 
@@ -1358,14 +1355,7 @@ sub has_many {
 
 	my $init			= shift;
 
-	my $key				= $init->{'key'};
-	my $instantiating	= $init->{'instantiating'} || 'lazy';
-	my $singleton		= $init->{'singleton'} || 0;
-	my $clauses			= $init->{'clauses'} || {};
-	my $accessibility	= $init->{'accessibility'} || 'public';
 	my $table			= $init->{'table'} || $class->primary_table;
-	my $relationship_key= $init->{'relationship_key'};
-	my $foreign_has_a	= $init->{'foreign_has_a'};
 
 	if (ref $fclass eq 'ARRAY') {
 		my $bridgekey = join(',', @$fclass);
@@ -1394,25 +1384,17 @@ sub has_many {
 
 	$class->add_attr([$attribute, '_instantiating_accessor'], $attribute);
 
-#	if ($instantiating eq 'lazy') {
-#		$class->add_attr([$attribute, '_instantiating_accessor'], $attribute);
-#	} else {
-#		 $class->add_attr([$attribute, '_verifying_instantiating_accessor'], $attribute);	
-#	}
-
 	$class->relationships->{$attribute} = {
 		'class'				=> $fclass,
-		'key'				=> $key,
-		'singleton'			=> $singleton,
-		'instantiating'		=> $instantiating,
-		'clauses'			=> $clauses,
-		'accessibility'		=> $accessibility,
 		'table'				=> $table,
-		'relationship_key'	=> $relationship_key,
-		'foreign_has_a'		=> $foreign_has_a,
+		'singleton'			=> 0,
+		'instantiating'		=> 'lazy',
+		'clauses'			=> {},
+		'accessibility'		=> 'public',
+		%$init,
 	};
 
-	unless ($singleton) {
+	unless ($init->{'singleton'}) {
 		$class->create_add_to_method($attribute) or return;
 	};
 
@@ -1467,6 +1449,7 @@ sub create_add_to_method {
 			my %init = @_;
 
 			my $table = $relationship_data->{'table'};
+			$table = $table->[0] if ref $table eq 'ARRAY';
 
 			my ($referencing_cols, $foreign_cols) = $self->relationship_columns($attribute) or return;
 
@@ -1840,7 +1823,7 @@ sub primary_identifier {
 
 	my $table = $self->primary_table;
 
-	my @primary_cols = map {$self->$_()} $table->primary_cols;
+	my @primary_cols = map {$self->$_()} $table->alias_column($table->primary_cols);
 
 	if (@primary_cols > 1 && ! $want_array_ref) {
 		return $self->error("Object has no unique identifier - composite key (@primary_cols)", "BOP-80");
@@ -1851,6 +1834,53 @@ sub primary_identifier {
 	};
 
 }
+
+=pod
+
+=item copy
+
+copy is overridden in Basset::Object::Persistent. When you copy a persistent object, it automatically wipes out
+the object's primary keys, and breaks all flags listing it as being in the database, so you get a fresh insert.
+Explicitly call Basset::Object's copy to key primary key values.
+
+ my $o2 = $o->copy;					#loses primary keys
+ my $o2 = $o->Basset::Object::Copy;	#keeps primary keys
+
+=cut
+
+sub copy {
+	my $self = shift;
+	
+	my $copy = $self->SUPER::copy(@_) or return;
+
+	require UNIVERSAL;
+	if (UNIVERSAL::isa($copy, __PACKAGE__)) {
+		if (my $table = $self->primary_table) {
+	
+			my @primary_cols = $table->alias_column($table->primary_cols);
+	
+			foreach my $p (@primary_cols) {
+				$copy->$p(undef);
+			};
+		}
+	
+		$copy->loaded(0);
+		$copy->committed(0);
+		$copy->in_db(0);
+		$copy->deleted(0);
+	}
+	
+	return $copy;
+	
+}
+
+=pod
+
+=begin btest(copy)
+
+=end btest(copy)
+
+=cut
 
 =pod
 
@@ -1904,7 +1934,6 @@ sub commit {
 	#we need to commit our singletons first, since their ids are stored in our table.
 	$self->commit_relationships('singletons') or return $self->fatalerror($self->errvals);
 
-	#my $table	= $self->primary_table or return $self->error("Cannot commit with no table", "BOP-01");
 	my @tables = @{$self->tables} or return $self->fatalerror("Cannot commit with no table", "BOP-01");
 
 	foreach my $table (@tables) {
@@ -1960,7 +1989,7 @@ sub commit {
 				$id_stmt->finish()
 					or return $self->fatalerror($id_stmt->errstr, "BOP-10");
 
-				my $primary	= $table->primary_column;
+				my $primary	= $table->alias_column($table->primary_column);
 				$self->$primary($id);
 			};
 
@@ -2317,14 +2346,8 @@ sub load_many {
 	if (@cols > 1) {
 		return $class->error("Cannot load many w/multiple primary columns", "BOP-66");
 	};
-	my $primary = $cols[0];
 
-	return $class->load_all(
-		{
-			'where' => $table->many_clause($primary, @ids),
-		},
-		@ids
-	);
+	return $class->load_where($cols[0] => \@ids);
 
 }
 
@@ -2509,24 +2532,6 @@ sub load_all {
 	my $iterated = $clauses->{'iterator'} || 0;
 	delete $clauses->{'iterator'};
 
-	my $loading_next = $clauses->{'_loading_next'} || 0;
-	delete $clauses->{'_loading_next'};
-
-	my $constructor = $clauses->{'constructor'} || {};
-	delete $clauses->{'constructor'};
-
-	my $singleton = $clauses->{'singleton'} || 0;
-	delete $clauses->{'singleton'};
-
-	my $key = $clauses->{'key'};
-	delete $clauses->{'key'};
-
-	my $transform = $clauses->{'transform'};
-	delete $clauses->{'transform'};
-
-	my $in_query = $clauses->{'in_query'};
-	delete $clauses->{'in_query'};
-
 	my $tableClass = $class->pkg_for_type('table') or return;
 
 	my $multiselect_query = $tableClass->multiselect_query(
@@ -2540,7 +2545,7 @@ sub load_all {
 		$clauses
 	) or return $class->error($tableClass->errvals);
 
-	$class->iterator(undef) unless $loading_next;
+	$class->iterator(undef) unless $clauses->{'_loading_next'};
 
 	my $stmt = $class->iterator || $class->arbitrary_sql(
 		'query' => $query,
@@ -2561,7 +2566,7 @@ sub load_all {
 
 		$stuff = {map {my $meth = "on_load_$_"; $_, $class->$meth($_, $stuff->{$_})} keys %$stuff};
 
-		my $obj = $class->new(%$stuff, %$constructor, 'loaded' => 1, 'loading' => 1, 'in_db' => 1)
+		my $obj = $class->new('loading' => 1, 'in_db' => 1, %$stuff, %{$clauses->{'constructor'}}, 'loaded' => 1)
 			or return $class->error("Cannot create object : " . $class->error, "BOP-06");
 		$obj->loading(0);
 
@@ -2577,7 +2582,7 @@ sub load_all {
 			$obj->setup() or return $class->error("Setup failed in object : " . $obj->error, $obj->errcode || "BOP-47");
 		}
 
-		if (defined $transform) {
+		if (my $transform = $clauses->{'transform'}) {
 			my $transformed = $obj->$transform();
 			return $class->error("Cannot transform object into non-object", "BOP-91")
 				unless $obj->is_relationship($transform) && ref $transformed;
@@ -2599,12 +2604,12 @@ sub load_all {
 		return;
 	};
 
-	if ($singleton) {
+	if ($clauses->{'singleton'}) {
 		my $return = $objs[0];
 		return $return || $class->error("Cannot load single object - no objects returned", "BOP-84");
 	}
 	else {
-		if (defined $key) {
+		if (my $key = $clauses->{'key'}) {
 			my %objs = map {$_->$key(), $_} @objs;
 			return \%objs;
 		} else {
@@ -2861,7 +2866,25 @@ sub load_where {
 
 =cut
 
+=pod
 
+=item load_one_where
+
+convenience method. Simply wrappers a load_where call while passing the singleton parameter
+
+=cut
+
+sub load_one_where {
+	return shift->load_where(\@_, {'singleton' => 1});
+}
+
+=pod
+
+=begin btest(load_one_where)
+
+=end btest(load_one_where)
+
+=cut
 
 =pod
 
@@ -2958,7 +2981,7 @@ sub arbitrary_sql {
 	#assume that we want a hash, if nothing's passed
 	$init{'into'} ||= 'hash';	#default to a hash
 
-	my $driver = $self->driver or return;
+	my $driver = $init{'driver'} || $self->driver or return;
 
 	#certain queries return stuff. If so, grab it.
 	my $arbitrary_selectables = $self->arbitrary_selectables();
@@ -3072,7 +3095,6 @@ to deal with.
 =cut
 
 __PACKAGE__->add_class_attr('_driver');
-__PACKAGE__->add_class_attr('_last_driver_access');
 
 sub driver {
 	my $self = shift;
@@ -3082,25 +3104,15 @@ sub driver {
 	if (@_) {
 		return $self->_driver(shift);
 	} elsif (my $driver = $self->_driver) {
-		my $now = time;
-		if ($now - $self->_last_driver_access > 300) {
-			unless ($driver->ping) {
-				$self->_driver(undef);
-				#if it has a stack and is stale, it's an error condition
-				if ($driver->stack) {
-					return $self->error("Stale driver - please reconnect", "XXX");
-				#otherwise, we don't really care. Go ahead and return a new one.
-				} else {
-					return $self->driver();
-				}
-			};
-		}
-		$self->_last_driver_access($now);
-		#$driver->ping unless $driver->stack;
+		if ($ENV{'MOD_PERL'} && ! $driver->ping) {
+			if ($driver->stack) {
+				$self->notify("warnings", "Silently disconnecting stale driver with transaction stack");
+			}
+			$driver->recreate_handle;
+		};
 		return $driver;
 	} else {
 		my $driver = $self->factory('type' => 'driver', @_) or return;
-		$self->_last_driver_access(time);
 		return $self->_driver($driver);
 	}
 };
@@ -3216,7 +3228,7 @@ sub end {
 	my $self = shift;
 
 	my $driver = $self->driver or return;
-
+	
 	return $driver->end() || $self->error($driver->errvals);
 };
 

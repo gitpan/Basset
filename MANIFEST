@@ -16,6 +16,8 @@ lib/Basset/Template.pm
 lib/Basset/Test/More.pm
 lib/Basset/Test.pm
 lib/Basset/Container/Hash.pm
+lib/Basset/Machine.pm
+lib/Basset/Machine/State.pm
 t/logger.t
 t/more.t
 t/object.t
