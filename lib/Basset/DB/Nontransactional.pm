@@ -1,9 +1,9 @@
 package Basset::DB::Nontransactional;
 
-#Basset::DB::Nontransactional 2004 James A Thomason III
+#Basset::DB::Nontransactional 2004, 2006 James A Thomason III
 #Basset::DB::Nontransactional is distributed under the terms of the Perl Artistic License.
 
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 =pod
 

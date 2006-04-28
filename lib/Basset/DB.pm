@@ -1,9 +1,9 @@
 package Basset::DB;
 
-#Basset::DB 2002, 2003, 2004, 2005 James A Thomason III
+#Basset::DB 2002, 2003, 2004, 2005, 2006 James A Thomason III
 #Basset::DB is distributed under the terms of the Perl Artistic License.
 
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 =pod
 
@@ -33,7 +33,7 @@ need something higher. Basset::DB does just that.
 use Basset::Object;
 use DBI 1.32 qw(:sql_types);
 
-@ISA = qw(Basset::Object);
+our @ISA = Basset::Object->pkg_for_type('object');
 
 use strict;
 use warnings;
@@ -280,14 +280,21 @@ so be careful with this method.
 sub recreate_handle {
 	my $self = shift;
 	
+        if ($self->handle && $self->stack) {
+                $self->notify("warnings", "Warning - driver destroyed with transaction stack");
+	}
+
+	if ($self->handle) {
+		$self->wipe();
+		$self->handle->disconnect;
+	}
+
 	my $h = $self->create_handle(
 		'dsn'			=> $self->dsn,
 		'user'			=> $self->user,
 		'pass'			=> $self->pass,
 		'AutoCommit'	=> 0,
 	) or return;
-	
-	$self->failed(0);
 	
 	return $self->handle($h);
 }		
@@ -346,6 +353,7 @@ sub DESTROY {
 		$self->notify("warnings", "Warning - driver destroyed with transaction stack");
 		$self->stack(0);
 		$self->handle->rollback;
+		$self->handle->disconnect;
 	};
 };
 
@@ -509,9 +517,14 @@ Subtracts 1 from your transaction stack.
 
 			$self->stack(0);
 
-			return $self->error("Cannot end transaction - failed", "BD-13") if $self->failed;
-
-			$self->finish() or return;
+			if ($self->failed) {
+				$self->notify('warnings', 'Silently unfailing failed stack with last end');
+				$self->unfail;
+				return $self->error("Cannot end transaction - failed", "BD-13");
+			}
+			else {
+				$self->finish() or return;
+			}
 
 			return '0 but true';
 		} else {

@@ -1,6 +1,6 @@
 package Basset::Template;
 
-#Basset::Template, copyright and (c) 2002, 2003 James A Thomason III
+#Basset::Template, copyright and (c) 2002, 2003, 2004, 2005, 2006 James A Thomason III
 #Basset::Template is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -30,7 +30,7 @@ Okay, so you want to write a template. It's going to need a few things. Code, va
  in: /path/to/template.tpl
 
  %% foreach my $age (1..5) {
- 	<@-- $name --@> is now <@-- $age --@><@-- "\n" --@>
+ 	<% $name %> is now <% $age %><% "\n" %>
  %% };
 
 Then, your code can be:
@@ -46,7 +46,7 @@ Then, your code can be:
  	}
  ) || $template->error;
 
-Voila. All done. Note that %% starts a code line which goes to the end. <@-- --@> delimits a variable to
+Voila. All done. Note that %% starts a code line which goes to the end. <% %> delimits a variable to
 be inserted. Also be aware that any white space between code blocks or variable insertion blocks will be stripped.
 That's why we have that "\n" in a variable insertion block - it puts in a new line. We don't end up with 2 newlines
 because the actual newline is stripped.
@@ -68,10 +68,10 @@ Damn near everything is configurable. Read on for more information.
 
 =cut
 
-$VERSION = '1.01';
+our $VERSION = '1.03';
 
 use Basset::Object;
-@ISA = qw(Basset::Object);
+our @ISA = Basset::Object->pkg_for_type('object');
 
 use strict;
 use warnings;
@@ -89,35 +89,35 @@ B<Note that all attributes should be set in the conf file>
 In a template, the simplest thing that you're going to want to do is embed a value. Say you have $x = 7 and want to display
 that. Your template could be:
 
- $x = <@-- $x --@>
+ $x = <% $x %>
 
 Which, when processed, would print:
 
  $x = 7
 
-In this case, <@-- is your open_return_tag and --@> is your close_return_tag. These should be specified in your
+In this case, <% is your open_return_tag and %> is your close_return_tag. These should be specified in your
 conf file, but may be alterred on a per-object basis (if you're a real masochist).
 
 Also note that side effects are handled correctly:
 
- $x is now : <@-- ++$x --@>, and is still <@-- $x --@>;
+ $x is now : <% ++$x %>, and is still <% $x %>;
 
  evaluates to :
  $x is now : 8, and is still 8
 
 And that you may do extra processing here, if you'd like. The final value is the one returned.
 
- <@-- $x++; $x = 18; $x --@>
+ <% $x++; $x = 18; $x %>
 
  evaluates to :
  18
 
-Defaults are <@-- and --@>
+Defaults are <% and %>
 
 =cut
 
-__PACKAGE__->add_attr('open_return_tag', '<%');
-__PACKAGE__->add_attr('close_return_tag', '%>');
+__PACKAGE__->add_attr('open_return_tag');
+__PACKAGE__->add_attr('close_return_tag');
 
 =item open_eval_tag, close_eval_tag
 
@@ -127,7 +127,7 @@ the eval tags come into play. The defaults are "%%" and "\n".
 For example:
 
  %% foreach my $x (1..5) {
- 	<@-- $x --@>
+ 	<% $x %>
  %% };
 
 evalutes to:
@@ -153,8 +153,8 @@ Comments will be stripped before the template is displayed. See also open_commen
 
 =cut
 
-__PACKAGE__->add_attr('open_eval_tag', '%%');
-__PACKAGE__->add_attr('close_eval_tag', "\n");
+__PACKAGE__->add_attr('open_eval_tag');
+__PACKAGE__->add_attr('close_eval_tag');
 
 =pod
 
@@ -191,8 +191,8 @@ Much cleaner.
 
 =cut
 
-__PACKAGE__->add_attr('big_open_eval_tag', "<code>");
-__PACKAGE__->add_attr('big_close_eval_tag', "</code>");
+__PACKAGE__->add_attr('big_open_eval_tag');
+__PACKAGE__->add_attr('big_close_eval_tag');
 
 =pod
 
@@ -204,33 +204,33 @@ embed comments via the eval_tags, it's less than ideal.
  %% # this is a comment
  <code> #this is a comment </code>
 
-So we have our comment tags, which default to <#-- and --#>
+So we have our comment tags, which default to <# and #>
 
- <#-- this is a comment that will be stripped out well before you see the processed template --#>
+ <# this is a comment that will be stripped out well before you see the processed template #>
 
 =cut
 
-__PACKAGE__->add_attr('open_comment_tag', "<#");
-__PACKAGE__->add_attr('close_comment_tag', "#>");
+__PACKAGE__->add_attr('open_comment_tag');
+__PACKAGE__->add_attr('close_comment_tag');
 
 =pod
 
 =item open_include_tag, close_include_tag
 
 You may want to include another template inside your current template. That's accomplished with include tags,
-which default to <&-- and --&>
+which default to <& and &>
 
  This is my template.
- Here is a subtemplate : <&-- /path/to/subtemplate.tpl --&>
+ Here is a subtemplate : <& /path/to/subtemplate.tpl &>
 
 There are two ways to include a subtemplate - with passed variables and without. Passing without variables is easy -
 we just did that up above.
 
- <&-- /path/to/subtemplate.tpl --&>
+ <& /path/to/subtemplate.tpl &>
 
 Passing with variables is also easy, just give it a hashref.
 
-<&-- /path/to/subtemplate.tpl {'var1' => \$var1, 'var2' => \$var2, 'var3' => \$var3} --&>
+<& /path/to/subtemplate.tpl {'var1' => \$var1, 'var2' => \$var2, 'var3' => \$var3} &>
 
 And voila. All set. Same rules apply for passing in variables as applies for the process method. You may break the include
 statement over multiple lines, if so desired.
@@ -242,8 +242,13 @@ the supertemplate, nor does the supertemplate have access to the subtemplate's v
 
 =cut
 
-__PACKAGE__->add_attr('open_include_tag', "<&");
-__PACKAGE__->add_attr('close_include_tag', "&>");
+__PACKAGE__->add_attr('open_include_tag');
+__PACKAGE__->add_attr('close_include_tag');
+
+__PACKAGE__->add_attr('open_cached_include_tag');
+__PACKAGE__->add_attr('close_cached_include_tag');
+
+__PACKAGE__->add_attr('cache_all_inserts');
 
 =pod
 
@@ -254,7 +259,7 @@ webserver doc root is: /home/users/me/public_html/mysite.com/
 
 Now, when you include files, you don't want to have to do:
 
- <&-- /home/users/me/public_html/mysite.com/someplace/mysubtemplate.tpl --&>
+ <& /home/users/me/public_html/mysite.com/someplace/mysubtemplate.tpl &>
 
 because that's messy and very non-portable. So just set a document_root.
 
@@ -262,13 +267,13 @@ because that's messy and very non-portable. So just set a document_root.
 
 and voila:
 
- <&-- /someplace/mysubtemplate.tpl --&>
+ <& /someplace/mysubtemplate.tpl &>
 
 Note that this only affects subtemplates set with an absolute path. So even with that doc root, these includes are
 unaffected:
 
- <&-- someplace/mysubtemplate.tpl --&>
- <&-- ~/someplace/mysubtemplate.tpl --&>
+ <& someplace/mysubtemplate.tpl &>
+ <& ~/someplace/mysubtemplate.tpl &>
 
 =cut
 
@@ -305,8 +310,33 @@ Debug tags will only be executed if allows_debugging is 1.
 
 =cut
 
-__PACKAGE__->add_attr('open_debug_tag', "<debug>");
-__PACKAGE__->add_attr('close_debug_tag', "</debug>");
+__PACKAGE__->add_attr('open_debug_tag');
+__PACKAGE__->add_attr('close_debug_tag');
+
+=pod
+
+=item pipe_flags
+
+This is a trickled class attribute hashref.
+
+The pipe_flags allow you to deviate from standard perl and send the output of your value to a processor before displaying.
+
+Built in flags include 'h' to escape the output for HTML and 'u' to escape the output for URLs.
+
+New flags should have the flag as the key and the processor as the value.
+
+ Some::Template::Subclass->pipe_flags->{'blogger_flag'} = 'blogger_processor';
+
+Will get one argument - the value to be processed.
+
+=cut
+
+__PACKAGE__->add_trickle_class_attr('pipe_flags',
+	{
+		'h' => 'escape_for_html',
+		'u' => 'escape_for_url',
+	}
+);
 
 =pod
 
@@ -321,9 +351,29 @@ This is the actual template on which you are operating.
 
 Hand in a literal string for a file to open, or a scalarref if it's already in memory.
 
+Note that if you had in a template with an absolute path starting with /, the template will automatically
+be assumed to be sitting off of the document root. Relative paths are unaffected.
+
 =cut
 
-__PACKAGE__->add_attr('template');
+__PACKAGE__->add_attr('_template');
+
+sub template {
+	my $self = shift;
+
+	my $tpl = $self->_template(@_);
+	my $root = $self->document_root;
+
+	if ($tpl =~ m!^/! && $tpl !~ m!^$root!) {
+		my $full_path_to_tpl = $root . $tpl;
+		$full_path_to_tpl =~ s!//+!/!g;
+		return $full_path_to_tpl;
+	}
+	else {
+		return $tpl;
+	};
+
+}
 
 =pod
 
@@ -402,28 +452,28 @@ compress_whitespace turns runs of spaces or tabs into a single space, and runs o
 
 __PACKAGE__->add_attr('compress_whitespace');
 
-=pod
-
-=item escape_html
-
-Boolean flag. 1/0.
-
-If your template is a webpage, it's possible that you'll want users to input data, which you'll re-display to them.
-Havoc can result if you display back a character with special meaning in HTML. 
-
-escape_html will do just that - escape html characters. Specifically, it will change ", ', &, <, and > into their
-HTML entity equivalents, B<when used with a return tag>. No special treatment is given for printing to OUT in an
-eval tag.
-
-Just be warned that it escapes all HTML, so something like this:
-
- <@-- $user->special ? '<b>' : ''>This is bold if you're special<@-- $user->special ? '</b>' : '' --@>
-
-would no longer work if escape_html is turned on.
-
-=cut
-
-__PACKAGE__->add_attr('escape_html');
+sub init {
+	return shift->SUPER::init(
+		{
+			'open_return_tag' => '<%',
+			'close_return_tag' => '%>',
+			'open_eval_tag' => '%%',
+			'close_eval_tag' => "\n",
+			'big_open_eval_tag' => '<code>',
+			'big_close_eval_tag' => "</code>",
+			'open_comment_tag' => '<#',
+			'close_comment_tag' => '#>',
+			'open_include_tag' => '<&',
+			'close_include_tag' => '&>',
+			'open_cached_include_tag' => '<&+',
+			'close_cached_include_tag' => '+&>',
+			'open_debug_tag' => '<debug>',
+			'close_debug_tag' => '</debug>',
+			'cache_all_inserts'	=> 0,
+		},
+		@_
+	);
+}
 
 {
 	my $package = 0;
@@ -492,7 +542,7 @@ sub return_to_eval {
 	#$val =~ /^(.*;)?(?:return\s*)?([^;]+)$/s;
 
 	# yuck. As you can see from the earlier regex, this used to be a lot cleaner. But it would
-	# fail on one case - <@-- ';' --@> (and its variants)
+	# fail on one case - <% ';' %> (and its variants)
 	# $1 would contain (';) and $2 would contain (') instead of $2 correctly containing (';')
 	#
 	# So that's bad.
@@ -501,7 +551,7 @@ sub return_to_eval {
 	# allow for quoted semi colons. In short, it's as many non quotes as you want, followed by anything
 	# quoted that you'd like, followed by as many semi colons as you want. That all gets stuffed into $1
 	#
-	# But there was one more problem. <@-- 'foo'; --@> Tacking on an unnecessary trailing semi-colon at the end
+	# But there was one more problem. <% 'foo'; %> Tacking on an unnecessary trailing semi-colon at the end
 	# that tosses things into $1 again. bad bad bad.
 	#
 	# That was originally handled by placing [^;] into $2, but we couldn't do that since ';' should be in $2
@@ -510,9 +560,35 @@ sub return_to_eval {
 	# any trailing semicolons that there may be. Problem solved.
 
 	$val =~ s/;+\s*$//;
-	$val =~ /^((?:[^'"]+(?:(?:'(?:[^']|\\')+')|(?:"(?:[^"]|\\")+"))?)*;+)?(?:\s*return\s*)?(.+)$/s;
+	$val =~ /^((?:[^'"]+(?:(?:'(?:[^']|\\')+')|(?:"(?:[^"]|\\")+"))?)*;+)?(?:\s*return\s*)?(.+?)((?:\s+\|\s*[\w\s]+\s*)*)$/s;
+	
+	my $pipe;
 
-	$val = $ein . (defined $1 ? $1 : '') . "{ $subval = $2; $file .= defined ($subval) ? (\$self->escape_html ? (\$self->escape_for_html($subval)) : ($subval)) : '';} $eout";
+	if (! defined $3) {
+		$pipe = $subval;
+	}
+	else {
+		my $all_pipes = $3;
+		$pipe = $subval;
+		while ($all_pipes =~ /\|\s*(\w+)((?:\s+\w+)*)/g) {
+			if (my $method = $self->pipe_flags->{$1}) {
+				my $args = '';
+				if (defined $2) {
+					$args = ", qw($2)";
+				}
+				$pipe = "\$self->$method($pipe $args)";
+			}
+		}
+	}
+
+#	if (! defined $3) {
+#		$pipe = $subval;
+#	}
+#	elsif (my $method = $self->pipe_flags->{$3}) {
+#		$pipe = "\$self->$method($subval)";
+#	}
+
+	$val = $ein . (defined $1 ? $1 : '') . "{ $subval = $2; $file .= defined ($subval) ? $pipe : '';} $eout";
 
 	return $val;
 };
@@ -558,7 +634,7 @@ sub tokenize {
 	return 
 		#grep {! /^[^\S\r\n]+$/}
 		grep {defined $_ && length $_ > 0}
-		split(/($rin(?:.*?)$rout)|($ein(?:.*?)$eout)|($bein(?:.*?)$beout)/s, $template);
+		split(/(\Q$rin\E(?:.*?)\Q$rout\E)|(\Q$ein\E(?:.*?)\Q$eout\E)|(\Q$bein\E(?:.*?)\Q$beout\E)/s, $template);
 };
 
 =pod
@@ -639,18 +715,14 @@ sub cache_file {
 sub insert_file {
 	my $self	= shift;
 	my $file	= shift or return $self->error("Cannot insert w/o file", "BT-13");
+	my $cached	= shift || 0;
+
+	my $pkg		= $self->pkg;
 
 	my $bein	= $self->big_open_eval_tag;
 	my $beout	= $self->big_close_eval_tag;
 
 	$file =~ s/^\s+|\s+$//g;
-
-	my $root = "''";
-
-	if ($file =~ m!^/! && defined $self->document_root){
-		$root = '$self->document_root';
-		$file =~ s!^/+!!g;
-	};
 
 	my $args = undef;
 
@@ -663,13 +735,33 @@ sub insert_file {
 	my $f = $self->file;
 
 	my $return = undef;
-	if ($args){
-		$return	 = qq[$bein { my \$tpl = Basset::Template->new('template' => $root . "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
-		$return	.= qq[$f .= \$tpl->process(eval q{$args}) || '[' . \$tpl->error . ']'; }; $beout];
+	if ($cached) {
+
+		my $tpl = $pkg->new(
+			'template' => $file,
+			'caching' => 0,
+			'compress_whitespace' => $self->compress_whitespace
+		);
+		
+		my $file = $tpl->template;
+		my $embedded;
+		{
+			local $/ = undef;
+			open (EMBEDDED, $file);
+			$embedded = <EMBEDDED>;
+			close EMBEDDED;
+		}
+		
+		$return = "$bein { $beout" . $embedded . "$bein } $beout";
+		
+	}
+	elsif ($args){
+		$return	 = qq[$bein { my \$tpl = $pkg->new('template' => "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
+		$return	.= qq[$f .= \$tpl->process(eval q{$args}) || '[' . \$tpl->errstring . ']'; }; $beout];
 	}
 	else {
-		$return	 = qq[$bein { my \$tpl = Basset::Template->new('template' => $root . "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
-		$return	.= qq[$f .= eval (\$tpl->preprocess) || '[' . \$tpl->error . ']'; }; $beout];
+		$return	 = qq[$bein { my \$tpl = $pkg->new('template' => "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
+		$return	.= qq[$f .= eval (\$tpl->preprocess) || '[' . \$tpl->errstring . ']'; }; $beout];
 	};
 
 	return $return;
@@ -697,6 +789,7 @@ sub preprocess {
 
 	my $template	= shift || $self->template
 		or return $self->error("Cannot preprocess without template", "BT-02");
+	my $raw			= shift || 0;
 
 	$self->file($self->gen_file($template)) unless $self->file;
 	$self->package($self->gen_package($template)) unless $self->package;
@@ -736,8 +829,6 @@ sub preprocess {
 		my $filename	= $template;
 
 		$cache_file = $self->cache_file($filename);	#turn it into the full name
-
-		#print "STDERR CHECK FILE FOR ($cache_file)\n";
 
 		if ($cache_file) {
 
@@ -780,6 +871,9 @@ sub preprocess {
 	my $cin		= $self->open_comment_tag;
 	my $cout	= $self->close_comment_tag;
 
+	my $ciin	= $self->open_cached_include_tag;
+	my $ciout	= $self->close_cached_include_tag;
+
 	my $iin		= $self->open_include_tag;
 	my $iout	= $self->close_include_tag;
 
@@ -789,19 +883,21 @@ sub preprocess {
 	my $pkg		= $self->package;
 	my $file	= $self->file;
 
-	$template =~ s/$iin(.*?)$iout/$self->insert_file($1)/ges;
+	#we need the special extra case of the while loop here to handled nested cached embedded templates.
+	$template =~ s/\Q$ciin\E(.*?)\Q$ciout\E/$self->insert_file($1, 'cached')/ges while $template =~ /\Q$ciin\E(.*?)\Q$ciout\E/;
+	$template =~ s/\Q$iin\E(.*?)\Q$iout\E/$self->insert_file($1, $self->cache_all_inserts)/ges while $template =~ /\Q$iin\E(.*?)\Q$iout\E/;
 
-	$template =~ s/$cin(.*?)$cout//gs if defined $template;
+	$template =~ s/\Q$cin\E(.*?)\Q$cout\E//gs if defined $template;
 
 
 #	$template =~ s/$cin(.*?)$cout//gs if defined $template;
 
-	$template =~ s/$rin(.*?)$rout/$self->return_to_eval($1)/gse if defined $template;
+	$template =~ s/\Q$rin\E(.*?)\Q$rout\E/$self->return_to_eval($1)/gse if defined $template;
 
-	$template =~ s/$din(.*?)$dout/$self->debug_to_eval($1)/gse if defined $template;
+	$template =~ s/\Q$din\E(.*?)\Q$dout\E/$self->debug_to_eval($1)/gse if defined $template;
 
-	$template =~ s/$eout(\s+)$ein/$eout$ein/g if defined $template;
-	$template =~ s/$beout(\s+)$bein/$beout$bein/g if defined $template;
+	$template =~ s/\Q$eout\E(\s+)\Q$ein\E/$eout$ein/g if defined $template;
+	$template =~ s/\Q$beout\E(\s+)\Q$bein\E/$beout$bein/g if defined $template;
 
 
 
@@ -840,6 +936,7 @@ sub preprocess {
 		};
 	};
 
+	#$template = join('', "use strict;\n", "use warnings;\n", @tokens);
 	$template = join('', @tokens);
 	$template =~ s/print OUT/$file .=/g;
 	$template .= ";\nreturn $file;\n";
@@ -917,7 +1014,7 @@ process returns the completed, processed, done template.
 
 The hashref contains the values to be populated into the template. Assume your template is:
 
- Hello, <@-- $name --@>
+ Hello, <% $name %>
 
 Then you may process it as:
 
@@ -1016,6 +1113,112 @@ sub process {
 
 };
 
+=pod
+
+=item escape_for_html
+
+class method, all it does is turn &, ", ', <, and > into their respective HTML entities. This is
+here for simplicity of all the subclasses to display things in templates
+
+=cut
+
+=pod
+
+=begin btest(escape_for_html)
+
+$test->is(__PACKAGE__->escape_for_html('&'), '&#38;', 'escapes &');
+$test->is(__PACKAGE__->escape_for_html('a&'), 'a&#38;', 'escapes &');
+$test->is(__PACKAGE__->escape_for_html('&b'), '&#38;b', 'escapes &');
+$test->is(__PACKAGE__->escape_for_html('a&b'), 'a&#38;b', 'escapes &');
+
+$test->is(__PACKAGE__->escape_for_html('"'), '&#34;', 'escapes "');
+$test->is(__PACKAGE__->escape_for_html('a"'), 'a&#34;', 'escapes "');
+$test->is(__PACKAGE__->escape_for_html('"b'), '&#34;b', 'escapes "');
+$test->is(__PACKAGE__->escape_for_html('a"b'), 'a&#34;b', 'escapes "');
+
+$test->is(__PACKAGE__->escape_for_html("'"), '&#39;', "escapes '");
+$test->is(__PACKAGE__->escape_for_html("a'"), 'a&#39;', "escapes '");
+$test->is(__PACKAGE__->escape_for_html("'b"), '&#39;b', "escapes '");
+$test->is(__PACKAGE__->escape_for_html("a'b"), 'a&#39;b', "escapes '");
+
+$test->is(__PACKAGE__->escape_for_html('<'), '&#60;', 'escapes <');
+$test->is(__PACKAGE__->escape_for_html('a<'), 'a&#60;', 'escapes <');
+$test->is(__PACKAGE__->escape_for_html('<b'), '&#60;b', 'escapes <');
+$test->is(__PACKAGE__->escape_for_html('a<b'), 'a&#60;b', 'escapes <');
+
+$test->is(__PACKAGE__->escape_for_html('>'), '&#62;', 'escapes >');
+$test->is(__PACKAGE__->escape_for_html('a>'), 'a&#62;', 'escapes >');
+$test->is(__PACKAGE__->escape_for_html('>b'), '&#62;b', 'escapes >');
+$test->is(__PACKAGE__->escape_for_html('a>b'), 'a&#62;b', 'escapes >');
+
+$test->is(__PACKAGE__->escape_for_html('&>'), '&#38;&#62;', 'escapes &>');
+$test->is(__PACKAGE__->escape_for_html('<">'), '&#60;&#34;&#62;', 'escapes <">');
+$test->is(__PACKAGE__->escape_for_html("&&'"), '&#38;&#38;&#39;', "escapes &&'");
+$test->is(__PACKAGE__->escape_for_html('<&'), '&#60;&#38;', 'escapes <&');
+$test->is(__PACKAGE__->escape_for_html(q('"'')), '&#39;&#34;&#39;&#39;', q(escapes '"''));
+
+$test->is(__PACKAGE__->escape_for_html(), undef, 'escaped nothing returns undef');
+$test->is(__PACKAGE__->escape_for_html(undef), undef, 'escaped undef returns nothing');
+
+=end btest(escape_for_html)
+
+=cut
+
+sub escape_for_html {
+	my $self = shift;
+	my $string = shift;
+
+	if (defined $string) {
+		$string =~ s/&/&#38;/g;
+		$string =~ s/"/&#34;/g;
+		$string =~ s/'/&#39;/g;
+		$string =~ s/</&#60;/g;
+		$string =~ s/>/&#62;/g;
+	};
+
+	return $string;
+};
+
+
+=pod
+
+=item escape_for_url
+
+URL escapes the key/value pair passed. This is here for simplicity of all the subclasses to display things in templates.
+
+ my $escaped = $class->escape_for_url('foo', 'this&that'); #$escape is foo=this%26that
+
+Also, you may pass an arrayref of values
+
+ my $escaped = $class->escape_for_url('foo', ['this&that', 'me', '***'); #$escape is foo=this%26that&foo=me&foo=%2A%2A%2A
+
+=cut
+
+sub escape_for_url {
+	my $class	= shift;
+	my $key		= shift;
+	my $value	= shift;
+	
+	$key =~ s/([^a-zA-Z0-9_.-])/uc sprintf("%%%02x",ord($1))/eg;
+	
+	if (defined $value && ref $value eq 'ARRAY'){
+		my @q = undef;
+		foreach my $v (@$value){
+			$v = '' unless defined $v;
+			 $v =~ s/([^a-zA-Z0-9_.-])/uc sprintf("%%%02x",ord($1))/eg;
+			 push @q, "$key=$v";
+		};
+		return join("&", @q);
+	}
+	elsif (defined $value){
+		$value =~ s/([^a-zA-Z0-9_.-])/uc sprintf("%%%02x",ord($1))/eg;
+		return "$key=$value";	
+	}
+	else {
+		return $key;
+	};
+};
+
 1;
 
 __END__
@@ -1033,7 +1236,7 @@ __END__
 
  %% my $old_age = 0;
  %% foreach my $age (1..5) {
- 	I was <@-- $old_age --@>, but now I am <@-- $age --@>.
+ 	I was <% $old_age %>, but now I am <% $age %>.
  	%% $old_age = $age;
  %% };
 
@@ -1056,8 +1259,8 @@ __END__
  template
  --------
 
- Hello there, <@-- $name --@>.
- I see that you are <@-- $admin ? '' : 'not' --@> an admin.
+ Hello there, <% $name %>.
+ I see that you are <% $admin ? '' : 'not' %> an admin.
  %% if ($admin) {
  	You may do administrative things.
  %% } else {
@@ -1089,7 +1292,7 @@ __END__
 
  <select name = "foo">
  	%% while (my ($key, $val) = each %foo) {
- 		<option value = "<@-- $val --@>"><@-- $key --@></option>
+ 		<option value = "<% $val %>"><% $key %></option>
  	%% };
  </select>
 
@@ -1116,7 +1319,7 @@ __END__
  __DATA__
  <select name = "foo">
  	%% while (my ($key, $val) = each %foo) {
- 		<option value = "<@-- $val --@>"><@-- $key --@></option>
+ 		<option value = "<% $val %>"><% $key %></option>
  	%% };
  </select>
 

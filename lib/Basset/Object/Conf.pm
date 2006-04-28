@@ -1,6 +1,6 @@
 package Basset::Object::Conf;
 
-#Basset::Object::Conf Copyright and (c) 2002, 2003, 2004 James A Thomason III
+#Basset::Object::Conf Copyright and (c) 2002, 2003, 2004, 2005, 2006 James A Thomason III
 #Basset::Object::Conf is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -56,11 +56,12 @@ There is no way for a program to later look at a less significant conf value.
 =cut
 
 our @conf_files = (qw(
-       /etc/basset.conf
-       ./basset.conf
-       Basset/Object/basset.conf
-       lib/Basset/Object/basset.conf
-));
+		/etc/basset.conf
+		./basset.conf
+		Basset/Object/basset.conf
+		lib/Basset/Object/basset.conf
+	), 
+);
 our %conf_files = ();
 
 sub conf_files {
@@ -87,7 +88,9 @@ You can also pass in a list of conf files to read, in most to least significant 
 
  my $conf = Mail::Bulkmail::Object->read_conf_file();
  or
- my $conf = Mail::Bulkmail::Object->read_conf_file('/other/conf.file');
+ my $conf = Mail::Bulkmail::Object->read_conf_file('conf_files' => '/other/conf.file');
+ or
+ my $conf = Mail::Bulkmail::Object->read_conf_file('conf_files' => ['/other/conf.file', '/additional/conf.file']);
  
 If you pass in a list of conf files, then the internal @conf_files array is bypassed.
 
@@ -122,6 +125,10 @@ read_conf_file is called at object initialization. Any defaults for your object 
 You'll rarely need to read the conf file yourself, since at object creation it is read and parsed and the values passed
 on.
 
+Note that it will combine the conf file in with an existing conf hash. To get a fresh one, pass in the conf_hash parameter.
+
+Basset::Object->read_conf_file('conf_hash' => {});
+
 B<Be sure to read up on the conf file structure, below>
 
 The conf file is only re-read if it has been modified since the last time it was read.
@@ -149,7 +156,6 @@ sub read_conf_file {
 	#This way, we can successfully compile this module first, and have Basset::Object use it.
 	unless (@Basset::Object::Conf::ISA) {
 		require Basset::Object;
-		#Basset::Object->inherits(__PACKAGE__, 'object');
 		@Basset::Object::Conf::ISA = qw(Basset::Object);
 	}
 
@@ -404,7 +410,7 @@ are created.
 
 In fact, we'll even get fancy, and specify an ABNF grammar for the conf file.
 
-	CONFFILE = *(LINE "\n")					; a conf file consists of 0 or more lines
+	CONFFILE = *(LINE)					; a conf file consists of 0 or more lines
 	
 	LINE = (
 			DEFINE 			; definition line
@@ -414,11 +420,9 @@ In fact, we'll even get fancy, and specify an ABNF grammar for the conf file.
 			/ *(WSP)		; blank line
 		) "\n"				; followed by a newline character
 	
-	DEFINE = %b100 %b101 %b102 %b105 %b110 %b101 %b32 %b112 %b97 %b99 %b107 %b97 %b103 %b101 TEXT
-		; the literal string "define package" in lower case, followed by TEXT
+	DEFINE = "define package" TEXT
 		
-	INCLUDE = %b105 %b110 %b99 %b108 %b117 %b100 %b101 %b32 %b102 %b105 %b108 %b101 TEXT
-		; the literal string "include file" in lower case, followed by TEXT
+	INCLUDE = "include file" TEXT
 			
 	COMMENT = *(WSP) "#" TEXT
 	

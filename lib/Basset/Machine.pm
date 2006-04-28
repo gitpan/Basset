@@ -1,6 +1,6 @@
 package Basset::Machine;
 
-#Basset::Machine, copyright and (c) 2004, 2005 James A Thomason III
+#Basset::Machine, copyright and (c) 2004, 2005, 2006 James A Thomason III
 #Basset::Machine is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -72,14 +72,13 @@ Look at the L<http://www.bassetsoftware.com/perl/basset/tutorial> for more info.
 
 =cut
 
-
-$VERSION = '1.00';
-
-use Basset::Object;
-@ISA = qw(Basset::Object);
-
 use strict;
 use warnings;
+
+our $VERSION = '1.01';
+
+use Basset::Object;
+our @ISA = Basset::Object->pkg_for_type('object');
 
 =pod
 
@@ -136,7 +135,9 @@ sub state {
 	my $self = shift;
 	
 	if (@_) {
-		return ($self->_state(shift), @_);
+		my $last = $self->_state;
+		$self->_state(shift);
+		return ($last, @_);
 	}
 	
 	return $self->_state;
@@ -219,6 +220,26 @@ that functions that way, then make this attribute false, and best of luck to you
 
 __PACKAGE__->add_attr('reentry_is_fatal');
 
+=pod
+
+=item extractor
+
+Most machines tend to need extractors. So you have one for free here. Wrappered by the extract method, below.
+
+=cut
+
+__PACKAGE__->add_attr('extractor');
+
+=pod
+
+=begin btest(extractor)
+
+
+=end btest(extractor)
+
+=cut
+
+
 sub init {
 	return shift->SUPER::init(
 		'running'		=> 0,
@@ -275,7 +296,7 @@ sub run {
 
 	$self->running(1);
 
-	my @rc = ();
+	my @rc = (undef); #that way, the start state will always reflect that it came from nothing.
 
 	$self->setup or $self->abort;
 
@@ -318,14 +339,18 @@ state of the machine (that is, you can check $self->state and it won't return 's
 it just returns success and the machine then begins running.
 
 This is a good place to do things like setup database connections, look up frequently used classes,
-cache data, etc.
+cache data, etc. By default, you get your extractor attribute set to whatever's in your conf file.
 
 If setup aborts, it will teardown the machine and nothing will run.
 
 =cut
 
 sub setup {
-	return 1;
+	my $self = shift;
+	
+	$self->extractor($self->pkg_for_type('extractor'));
+	
+	return $self;
 }
 
 =pod
@@ -447,6 +472,30 @@ sub transition {
 
 	return $self->state($next_state, @_);
 }
+
+=pod
+
+=item extract
+
+Convenience method. Simply calls extract on your extractor attribute, if you have one.
+
+=cut
+
+sub extract {
+	my $self = shift;
+	my $extractor = $self->extractor or return $self->error("Cannot extract w/o extractor", "XXX");
+	
+	return $extractor->extract(@_) or $self->error($extractor->errvals);
+}
+
+=pod
+
+=begin btest(extract)
+
+=end btest(extract)
+
+=cut
+
 
 =pod
 

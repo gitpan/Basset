@@ -1,6 +1,6 @@
 package Basset::Object;
 
-#Basset::Object Copyright and (c) 1999, 2000, 2002, 2003, 2004, 2005 James A Thomason III
+#Basset::Object Copyright and (c) 1999, 2000, 2002-2006 James A Thomason III
 #Basset::Object is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -29,8 +29,7 @@ Please read the tutorials at L<http://www.bassetsoftware.com/perl/basset/tutoria
 
 =cut
 
-
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 sub _conf_class {return 'Basset::Object::Conf'};
 BEGIN {eval 'use ' . _conf_class()};
@@ -42,23 +41,6 @@ use Basset::Container::Hash;
 
 use strict;
 use warnings;
-
-our %imported = ();
-
-sub import {
-	my $class = shift;
-	my $conf = $class->conf;
-	my $myconfig = $conf->{$class};
-
-	return if $imported{$class}++;
-
-	foreach my $method (keys %$myconfig) {
-		if ($class->can($method)) {
-			$class->$method($myconfig->{$method});
-		}
-	}
-
-}
 
 =pod
 
@@ -116,16 +98,7 @@ speed boost later, which you could easily get by going to arrays. You'd have to 
 instances of $object->{$attribute} to $object->[15] or whatever. That's an awful lot of work.
 
 With everything wrappered up this way, changes can be made in the super object class and then automagically populate
-out everywhere with no code changes. Spiffy stuff.
-
-There are some disadvantages, there is a little more overhead for doing the additional method call, but it's usually
-negligible. And you can't do nice things like:
-
- $object->{$attribute}++;
- you'd have to do
- $object->attribute($object->attribute + 1);
-
-Which is annoying. But I think it's offset by the consistent interface regardless of what your underlying object is.
+out everywhere with no code changes. 
 
 Enough with the philosophy, though. You need to know how this works.
 
@@ -144,84 +117,208 @@ returns the value.
  print $obj->foo();			#prints bar
  print $obj->foo('boo');	#prints boo
  print $obj->foo();			#prints boo
+ print $obj->foo('bang');	#prints bang
+ print $obj->foo;			#prings bang
 
 add_attr calls should only be in your module. B<Never in your program>. And they really should be defined up at the top.
 
 Internally, an add_attr call creates a function inside your package of the name of the attribute which reflects through
-to the internal _accessor method which handles the mutating and accessing.
+to the internal _isa_accessor method which handles the mutating and accessing.
+
+You may alternatively pass in a list of attributes, if you don't want to do so much typing.
+
+ __PACKAGE__->add_attr( qw( foo bar baz ) );
+
+Gives you foo, bar, and baz attributes.
 
 There is another syntax for add_attr, to define a different internal accessor:
 
- Some::Class->add_attr(['foo', 'other_accessor']);
+ Some::Class->add_attr(['foo', 'accessor_creator']);
 
-This creates method called 'foo' which talks to a separate accessor, in this case "other_accessor" instead of going
-to _accessor. This is useful if you want to create a validating method on your attribute.
+This creates method called 'foo' which talks to a separate accessor, in this case the closure returned by "accessor_creator" instead of a closure
+returned by _isa_accessor. This is useful if you want to create a validating method on your attribute.
 
-Additionally, it creates a normal method going to _accessor called '__foo', which is assumed to be the internal attribute
+Additionally, it creates a normal method going to _isa_accessor called '__b_foo', which is assumed to be the internal attribute
 slot your other accessor with use. In general, for a given "attribute", "__b_attribute" will be created for internal use. Also please
 note that you shouldn't ever create a method that starts with '__b_' (double underscore) since Basset reserves the right to automatically
 create methods named in that fashion. You've been warned.
 
 "other_accessor" will get the object as the first arg (as always) and the name of the internal method as the second.
 
-Example:
+A sample accessor_creator could look like this:
 
- Some::Class->add_attr(['foo', 'other_accessor']);
+ Some::Class->add_attr(['foo', 'accessor_creator']);
 
- $obj->foo('bee');
+ sub accessor_creator {
+ 	my $self = shift;
+ 	my $attribute = shift;	#the external method name
+ 	my $prop = shift;		#the internal "slot" that is a normal attribute
 
- sub other_accessor {
- 	my $self	= shift;
- 	my $method	= shift;	# "_foo", in this example
-
-	if (@_){
-		my $val = shift;	# "bee", in this example
-		if ($val == 7){
- 			return $self->$method($val);
+ 	#now we make our closure:
+ 	return sub {
+ 		my $self = shift;
+ 		if (@_) {
+ 			my $val = shift;
+ 			if ($val == 7) {
+ 				return $self->$prop($val);
+ 			}
+ 			else {
+ 				return $self->error("Cannot store value...must be 7!", "not_7");
+ 			}
  		}
  		else {
- 			return $self->error("Cannot store value...foo must be 7!");
- 		};
+ 			return $self->$prop();
+ 		}
  	}
- 	else {
- 		return $self->$method();
- 	};
- };
+ }
 
 And, finally, you can also pass in additional arguments as static args if desired.
 
- Some::Class->add_attr(['foo', 'other_accessor'], 'bar');
+ Some::Class->add_attr(['foo', 'accessor_creator'], 'bar');
 
  $obj->foo('bee');
 
- sub other_accessor {
+ sub accessor_creator {
  	my $self	= shift;
  	my $method	= shift;
  	my $static 	= shift;	#'bar' in our example
 
- 	my $value	= shift;	#'bee' in our example
- 	.
- 	.
- 	.
+	return sub {
+		#do something with static argument
+		.
+		.
+	}
  };
 
- All easy enough. Refer to any subclasses of this class for further examples.
+All easy enough. Refer to any subclasses of this class for further examples.
+
+Basset::Object includes two other alternate accessors for you - regex and private.
+
+ Some::Class->add_attr(['user_id', '_isa_regex_accessor', qr{^\d+$}, "Error - user_id must be a number", "NaN"]);
+
+The arguments to it are, respectively, the name of the attribute, the internal accessor used, the regex used to validate, the error message to return, and the error code to return.
+If you try to mutate with a value that doesn't match the regex, it'll fail.
+
+ Some::Class->add_attr(['secret', '_isa_private_accessor']);
+
+private accessors add a slight degree of security. All they do is simply restrict access to the attribute unless you are within the class of the object. Note, that this causes
+access to automatically trickle down into subclasses.
 
 =cut
+
+sub add_attr {
+	my $pkg			= shift;
+
+	no strict 'refs';
+
+	foreach my $record (@_) {
+		my ($attribute, $adding_method, $internal_attribute, @args);
+		if (ref $record eq 'ARRAY') {
+			($attribute, $adding_method, @args) = @$record;
+			$internal_attribute = $pkg->privatize($attribute);
+			*{$pkg . "::$internal_attribute"}	= $pkg->_isa_accessor($internal_attribute, $attribute)
+				unless *{$pkg . "::$internal_attribute"}{'CODE'};
+			*{$pkg . "::$attribute"}			= $pkg->$adding_method($attribute, $internal_attribute, @args)
+				unless *{$pkg . "::$attribute"}{'CODE'};
+		}
+		else {
+			$attribute = $record;
+			*{$pkg . "::$record"} = $pkg->_isa_accessor($record) unless *{$pkg . "::$record"}{'CODE'};
+		}
+
+		$pkg->_instance_attributes->{$attribute}++;
+
+	}
+
+	return 1;
+
+}
+
+sub _isa_accessor {
+	my $pkg			= shift;
+	my $attribute	= shift;
+	my $prop		= shift || $attribute;
+
+	return sub {
+		my $self = shift;
+
+		return $self->error("Not a class attribute", "BO-08") unless ref $self;
+
+		$self->{$prop} = shift if @_;
+
+		$self->{$prop};
+	};
+}
+
+# _accessor is the main accessor method used in the system. It defines the most simple behavior as to how objects are supposed
+# to work. If it's called with no arguments, it returns the value of that attribute. If it's called with arguments,
+# it sets the object attribute value to the FIRST argument passed and ignores the rest
+#
+# example:
+# my $object;
+# print $object->attribute7();		#prints out the value of attribute7
+# print $object->attribute7('foo');	#sets the value of attribute7 to 'foo', and prints 'foo'
+# print $object->attribute7();		#prints out the value of attribute7, which is now known to be foo
+#
+# All internal accessor methods should behave similarly, read the documentation for add_attr for more information
+
+#tested w/ add_attr, above
+
+sub _isa_regex_accessor {
+	my $pkg		= shift;
+	my $attribute	= shift;
+	my $prop		= shift;
+	my $regex		= shift;
+	my $error		= shift;
+	my $code		= shift;
+
+	return sub {
+		my $self = shift;
+		if (@_) {
+			my $val = shift;
+			return $self->error($error, $code) if defined $val && $val !~ /$regex/;
+
+			return $self->$prop($val);
+		}
+		else {
+			return $self->$prop();
+		}
+	};	
+}
+
+sub _isa_private_accessor {
+	my $pkg		= shift;
+	my $attribute	= shift;
+	my $prop		= shift;
+
+	return sub  {
+		my $self = shift;
+		my @caller = caller;
+		return $self->error("Cannot access $prop : private method", "BO-27") unless $caller[0] eq $self->pkg;
+
+		$self->$prop(@_);
+	};
+
+}
 
 =pod
 
 =begin btest(add_attr)
 
-sub test_accessor {
-	my $self = shift;
+sub add_test_accessor {
+	my $pkg = shift;
+	my $attr = shift;
 	my $prop = shift;
 	my $extra = shift;
 
-	return $self->error("Not a class attribute", "BO-08") unless ref $self;
+	no strict 'refs';
 
-	return $extra;
-};
+	return sub   {
+				my $self = shift;
+				return $self->error("Not a class attribute", "BO-08") unless ref $self;
+				$extra;
+		};
+}
 
 $test->ok(\&__PACKAGE__::test_accessor, "Added test accessor");
 
@@ -229,6 +326,7 @@ my $o = __PACKAGE__->new();
 $test->ok($o, "Object created");
 
 $test->ok(__PACKAGE__->add_attr('test_attribute1'), "Added attribute for _accessor");
+$test->ok(__PACKAGE__->add_attr('test_attribute1'), "Re-added attribute for _accessor");
 $test->ok($o->can('test_attribute1'), "Object sees attribute");
 $test->ok(__PACKAGE__->can('test_attribute1'), "Class sees attribute");
 
@@ -240,7 +338,8 @@ $test->is(scalar __PACKAGE__->test_attribute1('testval17'), undef, "Class fails 
 $test->is(scalar __PACKAGE__->test_attribute1(), undef, "Class fails to access");
 $test->is(scalar __PACKAGE__->test_attribute1(undef), undef, "Class fails to delete");
 
-$test->ok(__PACKAGE__->add_attr(['test_attribute2', 'test_accessor'], 'excess'), "Added attribute for test_accessor");
+$test->ok(__PACKAGE__->add_attr(['test_attribute2', 'add_test_accessor', 'excess']), "Added attribute for test_accessor");
+$test->ok(__PACKAGE__->add_attr(['test_attribute2', 'add_test_accessor', 'excess']), "Re-added attribute for test_accessor");
 $test->ok($o->can('test_attribute2'), "Object sees attribute");
 $test->ok(__PACKAGE__->can('test_attribute2'), "Class sees attribute");
 
@@ -256,15 +355,15 @@ $test->ok(__PACKAGE__->add_attr('test_attribute3', 'static'), "Added static attr
 $test->ok($o->can('test_attribute3'), "Object sees attribute");
 $test->ok(__PACKAGE__->can('test_attribute3'), "Class sees attribute");
 
-$test->is($o->test_attribute3('status'), 'static', "Method test_attribute3 mutates");
-$test->is($o->test_attribute3(), 'static', "Method test_attribute3 accesses");
-$test->is($o->test_attribute3(undef), 'static', "Method test_attribute3 deletes");
+$test->is($o->test_attribute3('status'), 'status', "Method test_attribute3 mutates");
+$test->is($o->test_attribute3(), 'status', "Method test_attribute3 accesses");
+$test->is($o->test_attribute3(undef), undef, "Method test_attribute3 deletes");
 
 $test->is(scalar __PACKAGE__->test_attribute3('testval19'), undef, "Class fails to mutate");
 $test->is(scalar __PACKAGE__->test_attribute3(), undef, "Class fails to access");
 $test->is(scalar __PACKAGE__->test_attribute3(undef), undef, "Class fails to delete");
 
-$test->ok(__PACKAGE__->add_attr(['test_attribute4', '_regex_accessor'], '^\d+$', 'Numbers only', 'test code'), "Added numeric only regex attribute");
+$test->ok(__PACKAGE__->add_attr(['test_attribute4', '_isa_regex_accessor', '^\d+$', 'Numbers only', 'test code']), "Added numeric only regex attribute");
 $test->ok($o->can('test_attribute4'), "Object sees attribute");
 $test->ok(__PACKAGE__->can('test_attribute4'), "Class sees attribute");
 
@@ -288,7 +387,7 @@ $test->is(scalar __PACKAGE__->test_attribute4('testval20'), undef, "Class fails 
 $test->is(scalar __PACKAGE__->test_attribute4(), undef, "Class fails to access");
 $test->is(scalar __PACKAGE__->test_attribute4(undef), undef, "Class fails to delete");
 
-$test->ok(__PACKAGE__->add_attr(['test_attribute5', '_regex_accessor'], 'abcD', 'Must contain abcD', 'test code2'), "Added abcD only regex attribute");
+$test->ok(__PACKAGE__->add_attr(['test_attribute5', '_isa_regex_accessor', 'abcD', 'Must contain abcD', 'test code2']), "Added abcD only regex attribute");
 $test->ok($o->can('test_attribute5'), "Object sees attribute");
 $test->ok(__PACKAGE__->can('test_attribute5'), "Class sees attribute");
 
@@ -315,38 +414,26 @@ $test->is(scalar __PACKAGE__->test_attribute5('testval20'), undef, "Class fails 
 $test->is(scalar __PACKAGE__->test_attribute5(), undef, "Class fails to access");
 $test->is(scalar __PACKAGE__->test_attribute5(undef), undef, "Class fails to delete");
 
+package Basset::Test::Testing::__PACKAGE__::add_attr::Subclass1;
+our @ISA = qw(__PACKAGE__);
+
+my $sub_class = "Basset::Test::Testing::__PACKAGE__::add_attr::Subclass1";
+
+my $so = $sub_class->new();
+
+$test->ok(scalar $sub_class->add_attr(['secret', '_isa_private_accessor']), 'added secret accessor');
+$test->ok($so->can('secret'), "Object sees secret attribute");
+$test->is($so->secret('foobar'), 'foobar', 'Object sets secret attribute');
+$test->is($so->secret(), 'foobar', 'Object sees secret attribute');
+
+package __PACKAGE__;
+
+$test->is(scalar $so->secret(), undef, 'Object cannot see secret attribute outside');
+$test->is($so->errcode, 'BO-27', 'proper error code');
+
 =end btest(add_attr)
 
 =cut
-
-sub add_attr {
-	my $pkg			= shift;
-	my $method		= shift;
-
-	no strict 'refs';
-
-	my $accessor	= "_accessor";
-
-	my @static_args	= @_;
-
-	if (ref $method){
-		($method, $accessor, my $internal_key) = @$method;
-		$internal_key ||= $method;
-		my $internal_method = $accessor eq '_accessor' ? $method : $pkg->privatize($method);
-
-		*{$pkg . "::$internal_method"}  = sub {shift->_accessor($internal_key, @_)}
-			unless *{$pkg . "::$internal_method"}{'CODE'};
-		*{$pkg . "::$method"}  = sub {shift->$accessor($internal_method, @static_args, @_)}
-			unless *{$pkg . "::$method"}{'CODE'} || $accessor eq '_accessor';
-	}
-	else {
-
-		*{$pkg . "::$method"}  = sub {shift->$accessor($method, @static_args, @_)}
-			unless *{$pkg . "::$method"}{'CODE'};
-	};
-
-	return $method;
-};
 
 =pod
 
@@ -380,6 +467,7 @@ my $o = __PACKAGE__->new();
 $test->ok($o, "Object created");
 
 $test->ok(__PACKAGE__->add_class_attr('test_class_attribute_1'), "Added test class attribute");
+$test->ok(__PACKAGE__->add_class_attr('test_class_attribute_1'), "Re-added test class attribute");
 $test->ok($o->can("test_class_attribute_1"), "object can see class attribute");
 $test->ok(__PACKAGE__->can("test_class_attribute_1"), "class can see class attribute");
 
@@ -482,12 +570,15 @@ sub add_class_attr {
 
 	my $conf = $pkg->conf or die "Conf file error : could not read conf file";
 
-	if (@_){
-		$pkg->$method(@_);
-	}
-	elsif (exists $conf->{$pkg}->{$method}){
+
+	if (exists $conf->{$pkg}->{$method}){
 		$pkg->$method($conf->{$pkg}->{$method});
 	}
+	elsif (@_){
+		$pkg->$method(@_);
+	}
+
+	$pkg->_class_attributes->{$method}++;
 
 	return $method;
 };
@@ -525,7 +616,6 @@ Usually, this behavior is fine, but sometimes you don't want that to happen. Tha
 in. Its first call will snag the value from the SuperClass, but then it will have its own attribute that's separate.
 
 Again, watch:
-
 
  package SuperClass;
 
@@ -603,6 +693,72 @@ See the add_restrictions method below for an example of a wrapper like this.
 
 =cut
 
+sub add_trickle_class_attr { 
+	my $internalpkg	= shift;
+	my $method		= shift;
+
+	no strict 'refs';
+
+	return $method if *{$internalpkg . "::$method"}{'CODE'};
+
+	my $attr = undef;
+	my $initialized = {$internalpkg => 1};
+
+	*{$internalpkg . "::$method"} = sub {
+
+		my $class = shift->pkg;
+
+		unless ($initialized->{$class}) {
+			$initialized->{$class}++;
+			my $local_conf = $class->conf('local');
+			if (defined (my $confval = $local_conf->{$method})) {
+				return $class->$method($confval);
+			};
+		}
+
+		if (@_) {
+			if ($class ne $internalpkg) {
+				$class->add_trickle_class_attr($method);
+				my $val = shift;
+
+				if (ref $val eq 'HASH' && ref $attr eq 'HASH') {
+					#the tie blows away the values, so we need to keep a copy.
+					my %tmp;
+					@tmp{keys %$val} = values %$val;
+					tie %$val, 'Basset::Container::Hash', $attr;
+					$class->add_trickle_class_attr($method);
+					@$val{keys %tmp} = values %tmp;
+				}
+
+				return $class->$method($val, @_);
+			}
+			$attr = shift;
+		}
+
+		if (ref $attr eq 'HASH' && $class ne $internalpkg) {
+			tie my %empty, 'Basset::Container::Hash', $attr;
+			$class->add_trickle_class_attr($method, \%empty);
+			return $class->$method();
+		}
+
+		return $attr;
+	};
+
+	my $conf = $internalpkg->conf;
+
+	if (defined (my $confval = $conf->{$internalpkg}->{$method})) {
+		$internalpkg->$method($confval);
+	}
+	elsif (@_) {
+		$internalpkg->$method(@_);
+	}
+
+	$internalpkg->_class_attributes->{$method}++;
+
+	return $method;
+
+}
+
 =pod
 
 =begin btest(add_trickle_class_attr)
@@ -611,6 +767,7 @@ my $o = __PACKAGE__->new();
 $test->ok($o, "Object created");
 
 $test->ok(__PACKAGE__->add_trickle_class_attr('trick_attr1'), "Added test trickle class attribute");
+$test->ok(__PACKAGE__->add_trickle_class_attr('trick_attr1'), "Re-added test trickle class attribute");
 $test->ok($o->can("trick_attr1"), "object can see trickle class attribute");
 $test->ok(__PACKAGE__->can("trick_attr1"), "class can see trickle class attribute");
 
@@ -672,62 +829,6 @@ package __PACKAGE__;
 
 =cut
 
-sub add_trickle_class_attr {
-
-	my $internalpkg		= shift;
-	my $method			= shift;
-
-	no strict 'refs';
-
-	return $method if *{$internalpkg . "::$method"}{'CODE'};
-
-	my $attr = undef;
-
-	*{$internalpkg . "::$method"} = sub {
-
-		my $class = shift->pkg;
-
-		if (@_) {
-			if ($class ne $internalpkg) {
-				$class->add_trickle_class_attr($method);
-				my $val = shift;
-
-				if (ref $val eq 'HASH' && ref $attr eq 'HASH') {
-					#the tie blows away the values, so we need to keep a copy.
-					my %tmp;
-					@tmp{keys %$val} = values %$val;
-					#print "FAKE HASH SET HERE ($class, $method, $internalpkg)\n";
-					tie %$val, 'Basset::Container::Hash', $attr;
-					$class->add_trickle_class_attr($method);
-					@$val{keys %tmp} = values %tmp;
-				}
-
-				return $class->$method($val, @_);
-			}
-			$attr = shift;
-		}
-
-		if (ref $attr eq 'HASH' && $class ne $internalpkg) {
-			tie my %empty, 'Basset::Container::Hash', $attr;
-			$class->add_trickle_class_attr($method, \%empty);
-			return $class->$method();
-		}
-
-		return $attr;
-	};
-
-	my $conf = $internalpkg->conf;
-
-	if (@_) {
-		$internalpkg->$method(@_);
-	} elsif (defined (my $confval = $conf->{$internalpkg}->{$method})) {
-		$internalpkg->$method($confval);
-	}
-
-	return $method;
-
-}
-
 =pod
 
 =item add_default_class_attr
@@ -735,38 +836,6 @@ sub add_trickle_class_attr {
 This adds a class attribute that is considered to be 'read-only' - it gets its value exclusively
 and utterly only from the conf file. Any modifications to this value are discarded in favor of the
 conf file value
-
-=cut
-
-=pod
-
-=begin btest(add_default_attr)
-
-package Basset::Test::Testing::__PACKAGE__::add_default_class_attr::subclass;
-our @ISA = qw(__PACKAGE__);
-
-package __PACKAGE__;
-
-$test->ok(Basset::Test::Testing::__PACKAGE__::add_default_class_attr::subclass->add_default_class_attr('some_test_attr'), "Added default class attribute");
-
-package Basset::Test::Testing::__PACKAGE__::add_default_class_attr::Subclass5;
-our @ISA = qw(__PACKAGE__);
-
-sub conf {
-	return undef;
-};
-
-package __PACKAGE__;
-
-{
-	local $@ = undef;
-	eval {
-		Basset::Test::Testing::__PACKAGE__::add_default_class_attr::Subclass5->add_class_attr('test_default_attr');
-	};
-	$test->like($@, qr/^Conf file error :/, 'could not add default class attr w/o conf file');
-}
-
-=end btest(add_default_attr)
 
 =cut
 
@@ -792,72 +861,198 @@ sub add_default_class_attr {
 		return $conf->{$pkg}->{$method};
 	};
 
+	$pkg->_class_attributes->{$method}++;
+
 	return $method;
 
 }
 
-# _accessor is the main accessor method used in the system. It defines the most simple behavior as to how objects are supposed
-# to work. If it's called with no arguments, it returns the value of that attribute. If it's called with arguments,
-# it sets the object attribute value to the FIRST argument passed and ignores the rest
-#
-# example:
-# my $object;
-# print $object->attribute7();		#prints out the value of attribute7
-# print $object->attribute7('foo');	#sets the value of attribute7 to 'foo', and prints 'foo'
-# print $object->attribute7();		#prints out the value of attribute7, which is now known to be foo
-#
-# All internal accessor methods should behave similarly, read the documentation for add_attr for more information
+=pod
 
-sub _accessor {
-	my ($self, $prop) = splice(@_,0,2);
+=begin btest(add_default_attr)
 
-	return $self->error("Not a class attribute", "BO-08", 0, 'DIE DIE DIE') unless ref $self;
+package Basset::Test::Testing::__PACKAGE__::add_default_class_attr::subclass;
+our @ISA = qw(__PACKAGE__);
 
-	$self->{$prop} = shift if @_;
+package __PACKAGE__;
 
-	return $self->{$prop};
+$test->ok(Basset::Test::Testing::__PACKAGE__::add_default_class_attr::subclass->add_default_class_attr('some_test_attr'), "Added default class attribute");
+$test->ok(Basset::Test::Testing::__PACKAGE__::add_default_class_attr::subclass->add_default_class_attr('some_test_attr'), "Re-added default class attribute");
+
+package Basset::Test::Testing::__PACKAGE__::add_default_class_attr::Subclass5;
+our @ISA = qw(__PACKAGE__);
+
+sub conf {
+	return undef;
 };
 
-#tested w/ add_attr, above
+package __PACKAGE__;
 
-sub _regex_accessor {
-	my $self	= shift;
-	my $prop	= shift;
-	my $regex	= shift;
-	my $error	= shift;
-	my $code	= shift;
+{
+	local $@ = undef;
+	eval {
+		Basset::Test::Testing::__PACKAGE__::add_default_class_attr::Subclass5->add_class_attr('test_default_attr');
+	};
+	$test->like($@, qr/^Conf file error :/, 'could not add default class attr w/o conf file');
+}
 
-	if (@_){
-		my $val = shift;
+=end btest(add_default_attr)
 
-		#return $self->error("Cannot store attribute - '$val' doesn't match /$regex/", "BO-01")
-		return $self->error($error, $code)		
-			if defined $val && $val !~ /$regex/;
+=cut
 
-		return $self->$prop($val);
+=pod
+
+=item attributes
+
+Returns the attributes available to this object, based off of the flag passed in - "instance", "class", or "both".
+defaults to "instance".
+
+Note - this method will not return attributes that begin with a leading underscore, as a courtesy.
+
+=cut
+
+sub attributes {
+	my $class	= shift->pkg;
+	my $type	= shift || 'instance';
+
+	my @attributes = ();
+
+	if ($type eq 'instance') {
+		@attributes = keys %{$class->_instance_attributes};
+	}
+	elsif ($type eq 'class') {
+		@attributes = keys %{$class->_class_attributes};
+	}
+	elsif ($type eq 'both') {
+		@attributes = (keys %{$class->_instance_attributes}, keys %{$class->_class_attributes});
 	}
 	else {
-		return $self->$prop();
-	};
-};
+		return $class->error("Cannot get attributes - don't know how to get '$type'", "BO-37");
+	}
 
-sub _private_accessor {
-	my $self = shift;
-	my $prop = shift;
-
-	my @caller = caller;
-
-	return $self->error("Cannot access $prop : private method", "BO-27") unless $caller[0] eq $self->pkg;
-
-	return $self->$prop(@_);
+	return [sort grep {! /^_/} @attributes];
 }
+
+=pod
+
+=begin btest(attributes)
+
+package Basset::Test::Testing::__PACKAGE__::attributes::Subclass1;
+our @ISA = qw(__PACKAGE__);
+my $subclass = "Basset::Test::Testing::__PACKAGE__::attributes::Subclass1";
+
+$subclass->add_attr('foo');
+$subclass->add_attr('bar');
+$subclass->add_class_attr('baz');
+$subclass->add_trickle_class_attr('trick');
+
+$test->is(ref $subclass->attributes('instance'), 'ARRAY', 'instance attributes is array');
+$test->is(ref $subclass->attributes('class'), 'ARRAY', 'class attributes is array');
+$test->is(ref $subclass->attributes('both'), 'ARRAY', 'both attributes is array');
+$test->is(scalar $subclass->attributes('invalid'), undef, 'non token attributes is error');
+$test->is($subclass->errcode, 'BO-37', 'proper error code');
+
+my $instance = { map {$_ => 1} @{$subclass->attributes} };
+$test->is($instance->{'foo'}, 1, 'foo is instance attribute from anon');
+$test->is($instance->{'bar'}, 1, 'bar is instance attribute from anon');
+$test->is($instance->{'baz'}, undef, 'baz is not instance attribute from anon');
+$test->is($instance->{'trick'}, undef, 'trick is not instance attribute from anon');
+
+my $instance_ex = { map {$_ => 1} @{$subclass->attributes('instance')} };
+$test->is($instance_ex->{'foo'}, 1, 'foo is instance attribute from explicit');
+$test->is($instance_ex->{'bar'}, 1, 'bar is instance attribute from explicit');
+$test->is($instance_ex->{'baz'}, undef, 'baz is not instance attribute from explicit');
+$test->is($instance_ex->{'trick'}, undef, 'trick is not instance attribute from explicit');
+
+my $both = { map {$_ => 1} @{$subclass->attributes('both')} };
+$test->is($both->{'foo'}, 1, 'foo is instance attribute from both');
+$test->is($both->{'bar'}, 1, 'bar is instance attribute from both');
+$test->is($both->{'baz'}, 1, 'baz is class attribute from both');
+$test->is($both->{'trick'}, 1, 'trick is class attribute from both');
+
+my $class = { map {$_ => 1} @{$subclass->attributes('class')} };
+$test->is($class->{'foo'}, undef, 'foo is not instance attribute from class');
+$test->is($class->{'bar'}, undef, 'bar is not instance attribute from class');
+$test->is($class->{'baz'}, 1, 'baz is class attribute from both');
+$test->is($class->{'trick'}, 1, 'trick is class attribute from class');
+
+=end btest(attributes)
+
+=cut
+
+=pod
+
+=item is_attribute
+
+=cut
+
+sub is_attribute {
+	my $class = shift->pkg;
+	my $attribute = shift;
+	my $type = shift || 'instance';
+
+	if ($type eq 'both') {
+		return $class->_instance_attributes->{$attribute} || $class->_class_attributes->{$attribute} || 0;
+	}
+	if ($type eq 'instance') {
+		return $class->_instance_attributes->{$attribute} || 0;
+	}
+	elsif ($type eq 'class') {
+		return $class->_class_attributes->{$attribute} || 0;
+	}
+	else {
+		return $class->error("Cannot determine is_attribute for flag : $type", "BO-38");
+	}
+
+}
+
+=pod
+
+=begin btest(is_attribute)
+
+package Basset::Test::Testing::__PACKAGE__::is_attribute::Subclass1;
+our @ISA = qw(__PACKAGE__);
+my $subclass = "Basset::Test::Testing::__PACKAGE__::is_attribute::Subclass1";
+
+$subclass->add_attr('ins1');
+$subclass->add_attr('ins2');
+$subclass->add_class_attr('class');
+$subclass->add_trickle_class_attr('trick');
+
+$test->ok($subclass->is_attribute('ins1') != 0, 'ins1 is instance by default');
+$test->ok($subclass->is_attribute('ins2') != 0, 'ins2 is instance by default');
+
+$test->ok($subclass->is_attribute('ins1', 'instance') != 0, 'ins1 is instance by explicitly');
+$test->ok($subclass->is_attribute('ins2', 'instance') != 0, 'ins2 is instance by explicitly');
+
+$test->ok($subclass->is_attribute('class') == 0, 'class is not attribute by default');
+$test->ok($subclass->is_attribute('class', 'class') != 0, 'class is class attribute by default');
+
+$test->ok($subclass->is_attribute('trick') == 0, 'trick is not attribute by default');
+$test->ok($subclass->is_attribute('trick', 'class') != 0, 'trick is class attribute by default');
+
+$test->ok($subclass->is_attribute('ins1', 'both') != 0, 'ins1 is instance by both');
+$test->ok($subclass->is_attribute('ins2', 'both') != 0, 'ins2 is instance by both');
+$test->ok($subclass->is_attribute('trick', 'both') != 0, 'trick is class attribute by both');
+$test->ok($subclass->is_attribute('class', 'both') != 0, 'class is class attribute by both');
+
+$test->ok($subclass->is_attribute('fake_instance') == 0, 'fake_instance is not attribute by default');
+$test->ok($subclass->is_attribute('fake_instance','both') == 0, 'fake_instance is not attribute by both');
+$test->ok($subclass->is_attribute('fake_instance','instance') == 0, 'fake_instance is not attribute by instance');
+$test->ok($subclass->is_attribute('fake_instance','class') == 0, 'fake_instance is not attribute by class');
+
+$test->is(scalar $subclass->is_attribute('ins1', 'invalid'), undef, "invalid is_attribute flag is error condition");
+$test->is($subclass->errcode, "BO-38", "proper error code");
+
+=end btest(is_attribute)
+
+=cut
 
 =pod
 
 =item add_wrapper
 
-You can now wrapper methods (or attributes, if desired, but using the extended add_attr syntax may be more appropriate
-for it) with before and after hooks that will get executed before or after the method, as desired. Syntax is:
+You can now wrapper methods with before and after hooks that will get executed before or after the method, as desired. Syntax is:
 
  $class->add_wrapper('(before|after)', 'method_name', 'wrapper_name');
 
@@ -920,29 +1115,36 @@ not upon simple access.
 
 Subclasses may define additional wrapper types.
 
+Please don't wrapper attributes. Things may break if the attribute value is legitimately undef (normally an error condition). Instead,
+use the extended add_attr syntax to define a new accessor method for the attribute you wish to wrap. Or simply write your own subroutine
+and directly call a separately added attribute yourself.
+
 =cut
 
 sub add_wrapper {
 
 	my $class		= shift;
 	my $type		= shift or return $class->error("Cannot add wrapper w/o type", "BO-31");
-	my $attribute	= shift or return $class->error("Cannot add wrapper w/o attribute", "BO-32");
+	my $method		= shift or return $class->error("Cannot add wrapper w/o attribute", "BO-32");
 	my $wrapper		= shift or return $class->error("Cannot add wrapper w/o wrapper", "BO-33");
 	my $conditional	= shift || 'no_op';
 
-	return $class->error("Cannot add wrapper : class does not know how to $attribute", "BO-34")
-		unless $class->can($attribute);
+	return $class->error("Cannot add wrapper : class does not know how to $method", "BO-34")
+		unless $class->can($method);
 
-	my $private = $class->privatize("privately_wrappered_$attribute");
+	return $class->error("Cannot add wrapper : $method is an attribute. Explicitly wrapper or use a new accessor method", "BO-39")
+		if $class->is_attribute($method, 'both');
+
+	my $private = $class->privatize("privately_wrappered_$method");
 
 	no strict 'refs';
 	no warnings;
 
 	my $ptr;
 
-	if (*{$class . "::$attribute"}{'CODE'}) {
+	if (*{$class . "::$method"}{'CODE'}) {
 
-		*{$class . "::$private"} = *{$class . "::$attribute"}{'CODE'};
+		*{$class . "::$private"} = *{$class . "::$method"}{'CODE'};
 		#if it's local to us, we're carefully hiding the function, so we need to look
 		#at an actual reference to the original
 		$ptr = *{$class . "::$private"}{'CODE'};
@@ -950,11 +1152,11 @@ sub add_wrapper {
 	#otherwise, we need to find out who owns it, and keep a soft pointer to it.
 		my @parents = reverse @{$class->isa_path};
 		foreach my $parent (@parents) {
-			if (*{$parent . "::$attribute"}{'CODE'}) {
+			if (*{$parent . "::$method"}{'CODE'}) {
 				# but, if it's the parent's, then we need to only point to the name of the method
 				# in the parent's class. This allows the parent to add a wrapper on this method
 				# after we do, and we still get it.
-				$ptr = "${parent}::$attribute";
+				$ptr = "${parent}::$method";
 				last;
 			}
 		}
@@ -966,7 +1168,7 @@ sub add_wrapper {
 
 	if ($type eq 'before') {
 
-		*{$class . "::$attribute"} = sub {
+		*{$class . "::$method"} = sub {
 			my $self = shift;
 
 			if ($self->$conditional(@_)) {
@@ -978,7 +1180,7 @@ sub add_wrapper {
 		}
 	}
 	elsif ($type eq 'after') {
-		*{$class . "::$attribute"} = sub {
+		*{$class . "::$method"} = sub {
 			my $self = shift;
 
 			my $rc = $self->$ptr(@_) or return;
@@ -1011,6 +1213,32 @@ $subclass->add_attr('after_wrapper');
 $subclass->add_attr('after_wrapper2');
 $subclass->add_attr('code_wrapper');
 
+my ($meth1, $meth2, $meth3, $meth4);
+
+sub meth1 {
+	my $self = shift;
+	$meth1 = shift if @_;
+	return $meth1;
+}
+
+sub meth2 {
+	my $self = shift;
+	$meth2 = shift if @_;
+	return $meth2;
+}
+
+sub meth3 {
+	my $self = shift;
+	$meth3 = shift if @_;
+	return $meth3;
+}
+
+sub meth4 {
+	my $self = shift;
+	$meth4 = shift if @_;
+	return $meth4;
+}
+
 sub wrapper1 {shift->before_wrapper('set')};
 
 sub wrapper2 {
@@ -1029,6 +1257,15 @@ sub wrapper5 {
 	$_[0]->before_wrapper2('5-BSET2');
 	$_[0]->after_wrapper('5-ASET1');
 	$_[0]->after_wrapper2('5-ASET2');
+}
+
+sub conditional_true {
+	return 1;
+}
+
+sub conditional_false {
+	my $self = shift;
+	return $self->error("failed false condition", "conditional_false_error_code");
 }
 
 package Basset::Test::Testing::__PACKAGE__::add_wrapper2;
@@ -1052,27 +1289,30 @@ $test->is($subclass->errcode, "BO-33", "proper error code");
 $test->ok(! $subclass->add_wrapper('before', 'bogus_attribute', 'bogus_wrapper'), "Cannot add wrapper: bogus attribute");
 $test->is($subclass->errcode, "BO-34", "proper error code");
 
-$test->ok(! $subclass->add_wrapper('before', 'attr2', 'bogus_wrapper'), "Cannot add wrapper: bogus wrapper");
+$test->ok(! $subclass->add_wrapper('before', 'attr2', 'bogus_wrapper'), "Cannot add wrapper: cannot wrapper attributes");
+$test->is($subclass->errcode, "BO-39", "proper error code");
+
+$test->ok(! $subclass->add_wrapper('before', 'meth2', 'bogus_wrapper'), "Cannot add wrapper: bogus wrapper");
 $test->is($subclass->errcode, "BO-35", "proper error code");
 
-$test->ok(! $subclass->add_wrapper('junk', 'attr2', 'wrapper1'), "Cannot add wrapper: bogus type");
+$test->ok(! $subclass->add_wrapper('junk', 'meth2', 'wrapper1'), "Cannot add wrapper: bogus type");
 $test->is($subclass->errcode, "BO-36", "proper error code");
 
-$test->ok($subclass->add_wrapper('before', 'attr1', 'wrapper1'), "added wrapper to ref");
+$test->ok(scalar $subclass->add_wrapper('before', 'meth1', 'wrapper1'), "added wrapper to ref");
 
 my $o = $subclass->new();
 $test->ok($o, "got object");
 
 $test->is($o->before_wrapper, undef, "before_wrapper is undef");
-$test->is($o->attr1('foo'), 'foo', 'set attr1 to foo');
+$test->is($o->meth1('foo'), 'foo', 'set meth1 to foo');
 $test->is($o->before_wrapper, 'set', 'before_wrapper is set');
 
 $test->is($o->before_wrapper(undef), undef, "before_wrapper is undef");
 
-$test->ok($subclass->add_wrapper('before', 'attr1', 'wrapper2'), "added wrapper to ref");
+$test->ok(scalar $subclass->add_wrapper('before', 'meth1', 'wrapper2'), "added wrapper to ref");
 
 $test->is($o->before_wrapper, undef, "before_wrapper is undef");
-$test->is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o->meth1('bar'), 'bar', 'set meth1 to baz');
 $test->is($o->before_wrapper, 'set', 'before_wrapper is set');
 $test->is($o->before_wrapper2, 'set2', 'before_wrapper2 is set2');
 $test->is($o->after_wrapper, undef, 'after_wrapper is undef');
@@ -1081,20 +1321,20 @@ $test->is($o->after_wrapper2, undef, 'after_wrapper2 is undef');
 $test->is($o->before_wrapper(undef), undef, "before_wrapper is undef");
 $test->is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
 
-$test->ok($subclass->add_wrapper('after', 'attr1', 'wrapper3'), "added after wrapper to ref");
+$test->ok(scalar $subclass->add_wrapper('after', 'meth1', 'wrapper3'), "added after wrapper to ref");
 
 $test->is($o->before_wrapper, undef, "before_wrapper is undef");
-$test->is($o->attr1('baz'), 'baz', 'set attr1 to baz');
+$test->is($o->meth1('baz'), 'baz', 'set meth1 to baz');
 $test->is($o->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
 $test->is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
 
 my $o2 = $subclass2->new();
 $test->ok($o2, "got sub object");
 
-$test->ok($subclass2->add_wrapper('before', 'attr1', 'wrapper4'), "added after wrapper to ref");
+$test->ok(scalar $subclass2->add_wrapper('before', 'meth1', 'wrapper4'), "added after wrapper to ref");
 
 $test->is($o2->before_wrapper, undef, "before_wrapper is undef");
-$test->is($o2->attr1('baz'), 'baz', 'set attr1 to baz');
+$test->is($o2->meth1('baz'), 'baz', 'set meth1 to baz');
 $test->is($o2->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
 $test->is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
 $test->is($o2->after_wrapper, 'AWRAPPER', 'after_wrapper is AWRAPPER');
@@ -1104,15 +1344,14 @@ $test->is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
 $test->is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
 $test->is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
 
-$test->ok($subclass->add_wrapper('before', 'attr1', 'wrapper5'), "added before wrapper to ref");
+$test->ok(scalar $subclass->add_wrapper('before', 'meth1', 'wrapper5'), "added before wrapper to ref");
 
 $test->is($o->before_wrapper, undef, "before_wrapper is undef");
-$test->is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o->meth1('bar'), 'bar', 'set meth1 to baz');
 $test->is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
 $test->is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
 $test->is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
 $test->is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
-
 
 $test->is($o2->before_wrapper(undef), undef, "before_wrapper is undef");
 $test->is($o2->before_wrapper2(undef), undef, "before_wrapper2 is undef");
@@ -1120,12 +1359,11 @@ $test->is($o2->after_wrapper(undef), undef, "after_wrapper2 is undef");
 $test->is($o2->after_wrapper2(undef), undef, "after_wrapper2 is undef");
 
 $test->is($o2->before_wrapper, undef, "before_wrapper is undef");
-$test->is($o2->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o2->meth1('bar'), 'bar', 'set meth1 to baz');
 $test->is($o2->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
 $test->is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
 $test->is($o2->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
 $test->is($o2->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
-
 
 $test->is($o->before_wrapper(undef), undef, "before_wrapper is undef");
 $test->is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
@@ -1133,15 +1371,26 @@ $test->is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
 $test->is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
 
 $test->is($o->before_wrapper, undef, "before_wrapper is undef");
-$test->is($o->attr1('bar'), 'bar', 'set attr1 to baz');
+$test->is($o->meth1('bar'), 'bar', 'set meth1 to baz');
 $test->is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
 $test->is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
 $test->is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
 $test->is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
 
-$test->ok($subclass->add_wrapper('before', 'attr1', sub {$_[0]->code_wrapper('SET CODE WRAP'); return 1}), 'added coderef wrapper');
-$test->is($o->attr1('code'), 'code', 'set attr1 to code');
+$test->ok(scalar $subclass->add_wrapper('before', 'meth1', sub {$_[0]->code_wrapper('SET CODE WRAP'); return 1}), 'added coderef wrapper');
+$test->is($o->meth1('code'), 'code', 'set meth1 to code');
 $test->is($o->code_wrapper, 'SET CODE WRAP', 'properly used coderef wrapper');
+
+$test->ok(scalar $subclass->add_wrapper('before', 'meth3', 'wrapper1', 'conditional_true'), "added conditional_true wrapper");
+$test->is($o->before_wrapper(undef), undef, "wiped out before_wrapper");
+$test->is($o->meth3('meth 3 val'), 'meth 3 val', 'properly set method 3 value');
+$test->is($o->before_wrapper, 'set', 'set before_wrapper');
+
+$test->ok(scalar $subclass->add_wrapper('before', 'meth4', 'wrapper1', 'conditional_false'), "added conditional_false wrapper");
+$test->is($o->before_wrapper(undef), undef, "wiped out before_wrapper");
+$test->is($o->meth4('meth 4 val'), 'meth 4 val', 'could not set method 4 value');
+$test->is($o->errcode, 'conditional_false_error_code', 'proper error code');
+$test->is($o->before_wrapper, undef, 'could not set before_wrapper');
 
 =end btest(add_wrapper)
 
@@ -1251,8 +1500,8 @@ sub notifier {
 my $center = __PACKAGE__->pkg_for_type('notificationcenter');
 $test->ok($center, "Got notification center class");
 
-
 $test->ok(
+	scalar
 	$center->addObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'error',
@@ -1356,6 +1605,7 @@ $test->is($notes, 7, "No notification");
 $test->is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0,"shut off exceptions");
 
 $test->ok(
+	scalar
 	$center->removeObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'error',
@@ -1644,8 +1894,8 @@ sub notifier2 {
 my $center = __PACKAGE__->pkg_for_type('notificationcenter');
 $test->ok($center, "Got notification center class");
 
-
 $test->ok(
+	scalar
 	$center->addObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'error',
@@ -1670,13 +1920,12 @@ $test->is($errvals[2], "silently", "errvals always silent");
 $test->is($notes, 1, "No notification");
 
 $test->ok(
+	scalar
 	$center->removeObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'error',
 	), "Removed observer for error notifications"
 );
-
-
 
 =end btest(errvals)
 
@@ -1709,7 +1958,9 @@ See "errortranslator", below, for more info.
 =begin btest(usererror)
 
 my $translator = __PACKAGE__->errortranslator();
-$test->ok(__PACKAGE__->errortranslator(
+$test->ok(
+	scalar
+	__PACKAGE__->errortranslator(
 	{
 		'test code' => "friendly test message",
 		'formatted test error %d' => "friendlier test message",
@@ -1737,7 +1988,9 @@ $test->is(__PACKAGE__->usererror(), "friendly test message", "Class gets user er
 $test->is(scalar __PACKAGE__->error("Some unknown error", "unknown code"), undef, "Class sets standard error w/o translation");
 $test->is(__PACKAGE__->usererror(), "Some unknown error", "Class gets no user error");
 
-$test->ok(__PACKAGE__->errortranslator(
+$test->ok(
+	scalar
+	__PACKAGE__->errortranslator(
 	{
 		'test code' => "friendly test message",
 		'formatted test error %d' => "friendlier test message",
@@ -1813,9 +2066,9 @@ Wipes out the current error message and error code.
 $test->is(scalar __PACKAGE__->error("test error", "error code"), undef, "Class set error and errcode");
 $test->is(__PACKAGE__->error(), "test error", "Class accesses error");
 $test->is(__PACKAGE__->errcode(), "error code", "Class accesses errcode");
-$test->ok(__PACKAGE__->wipe_errors(), "Class wiped errors");
-$test->is(__PACKAGE__->error(), undef, "Class error wiped out");
-$test->is(__PACKAGE__->errcode(), undef, "Class errcode wiped out");
+$test->ok(scalar __PACKAGE__->wipe_errors(), "Class wiped errors");
+$test->is(scalar __PACKAGE__->error(), undef, "Class error wiped out");
+$test->is(scalar __PACKAGE__->errcode(), undef, "Class errcode wiped out");
 
 my $confClass = __PACKAGE__->pkg_for_type('conf');
 $test->ok($confClass, "Got conf");
@@ -1831,10 +2084,9 @@ eval {
 $test->ok($@, "Caught exception");
 $test->like($@, qr/test exception code/, "Exception matches");
 $test->like(__PACKAGE__->last_exception, qr/test exception/, "Exception is present");
-$test->ok(__PACKAGE__->wipe_errors(), "Class wiped errors");
+$test->ok(scalar __PACKAGE__->wipe_errors(), "Class wiped errors");
 $test->is(__PACKAGE__->last_exception, undef, "last exception wiped out");
 $test->is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0,"disables exceptions");
-
 
 =end btest(wipe_errors)
 
@@ -1903,6 +2155,7 @@ my $center = __PACKAGE__->pkg_for_type('notificationcenter');
 $test->ok($center, "Got notification center class");
 
 $test->ok(
+	scalar
 	$center->addObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'test1',
@@ -1912,6 +2165,7 @@ $test->ok(
 );
 
 $test->ok(
+	scalar
 	$center->addObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'test2',
@@ -1920,19 +2174,19 @@ $test->ok(
 	), "Added observer for test2 notifications"
 );
 
-
 my $o = __PACKAGE__->new();
 $test->ok($o, "Object created");
 
-$test->ok(__PACKAGE__->notify('test1', "Test 1 note 1"), "Class posted notification");
+$test->ok(scalar __PACKAGE__->notify('test1', "Test 1 note 1"), "Class posted notification");
 $test->is($test1notes, "Test 1 note 1", "Received note");
 $test->is($test2notes, undef, "No note for test 2");
 
-$test->ok(__PACKAGE__->notify('test2', "Test 2 note 2"), "Class posted notification");
+$test->ok(scalar __PACKAGE__->notify('test2', "Test 2 note 2"), "Class posted notification");
 $test->is($test2notes, "Test 2 note 2", "Received note");
 $test->is($test1notes, "Test 1 note 1", "Test 1 note unchanged");
 
 $test->ok(
+	scalar
 	$center->removeObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'test1',
@@ -1940,6 +2194,7 @@ $test->ok(
 );
 
 $test->ok(
+	scalar
 	$center->addObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'test1',
@@ -1948,26 +2203,25 @@ $test->ok(
 	), "Added specific observer for test1 notifications"
 );
 
-$test->ok(__PACKAGE__->notify('test1', 'Test 1 note 2'), "Class posted notification");
+$test->ok(scalar __PACKAGE__->notify('test1', 'Test 1 note 2'), "Class posted notification");
 $test->is($test1notes, "Test 1 note 1", "Test 1 note unchanged");
 $test->is($test2notes, "Test 2 note 2", "Test 2 note unchanged");
 
-$test->ok($o->notify('test1', 'Test 1 note 3'), "Object posted notification");
+$test->ok(scalar $o->notify('test1', 'Test 1 note 3'), "Object posted notification");
 $test->is($test1notes, "Test 1 note 3", "Recieved note");
 
 $test->is($test2notes, "Test 2 note 2", "Test 2 note unchanged");
 
-
-
 $test->ok(
+	scalar
 	$center->removeObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'test1',
 	), "Removed observer for test1 notifications"
 );
 
-
 $test->ok(
+	scalar
 	$center->removeObserver(
 		'observer' => '__PACKAGE__',
 		'notification'	=> 'test2',
@@ -2052,7 +2306,7 @@ my %restrictions = (
 	]
 );
 
-$test->ok(Basset::Test::Testing::__PACKAGE__::add_restrictions::Subclass1->add_restrictions(%restrictions), "Added restrictions to subclass");
+$test->ok(scalar Basset::Test::Testing::__PACKAGE__::add_restrictions::Subclass1->add_restrictions(%restrictions), "Added restrictions to subclass");
 
 =end btest(add_restrictions)
 
@@ -2065,7 +2319,6 @@ sub add_restrictions {
 	my $restrictions = $self->restrictions();
 
 #	@$restrictions{keys %newrestrictions} = values %newrestrictions;
-
 
        #this is a nuisance. We're here, so we know that we're adding restrictions.
        #if there's already a restrictions hash, we need to duplicate it here. See the
@@ -2086,11 +2339,10 @@ sub add_restrictions {
        };
 
         @$restrictions{keys %newrestrictions} = values %newrestrictions;
- 
+
        #finally, we can properly set the new hash because we're guaranteed that it's always a copy
        #that we want to operate on.
        $self->restrictions($restrictions);
-
 
 	return 1;
 }
@@ -2324,7 +2576,7 @@ sub inline_class {
 	my $class = $pkg . '::BASSETINLINE::R' . $restrict_counter++;
 	@{$class . "::ISA"} = ($pkg);
 	$class->restricted(1);
-	
+
 	$inlined{$class}++;
 
 	return $class;
@@ -2338,7 +2590,7 @@ sub load_pkg {
 
 	local $@ = undef;
 	eval "use $newclass" unless $inlined{$newclass} || $INC{$class->module_for_class($newclass)};
-	
+
 	if ($@) {
 		return $errorless ? undef : $class->error("Cannot load class ($newclass) : $@", "BO-29");
 	}
@@ -2346,6 +2598,16 @@ sub load_pkg {
 	return $newclass;
 }
 
+=pod
+
+=begin btest(load_pkg)
+
+my $iclass = __PACKAGE__->inline_class;
+$test->ok(scalar __PACKAGE__->load_pkg($iclass), "Can load inline class");
+
+=end btest(load_pkg)
+
+=cut
 
 =pod
 
@@ -2668,12 +2930,24 @@ $test->ok($o7, "Created object w/0 value");
 $test->is($o7->attr1, 7, 'attr1 value set');
 $test->is($o7->attr2, 0, 'attr2 value set');
 
+my $o8 = Basset::Test::Testing::__PACKAGE__::new::Subclass1->new(
+	{
+		'attr1' => 8,
+		'attr2' => 9
+	},
+	'attr1' => 7
+);
+
+$test->ok($o8, "Created object w/0 value");
+$test->is($o8->attr1, 7, 'attr1 value set');
+$test->is($o8->attr2, 9, 'attr2 value set');
+
 =end btest(new)
 
 =cut
 
 sub new {
-	my $class	= shift;
+	my $class	= shift->pkg;
 	my $self	= bless {}, $class;
 
 	return $self->init(
@@ -2713,6 +2987,33 @@ the fact that it was not defined for your own package. Naturally, the more signi
 
 SuperClass objects will default foo to 'bar', SubClass objects will default foo to 'baz'
 
+If the initializer is given a hashref as its first argument, then it will use those values first. Note that
+values passed in via a hashref like this may be overridden by defaults AND by passed in arguments.
+
+For example:
+
+ #in your conf file
+ define package Some::Class
+ foo = bar
+ one = two
+ alpha = beta
+
+ #in your code
+
+ my $x = Some::Class->new(
+ 	{
+ 		'foo' => 'fnar',
+ 		'mister' => 'peepers',
+ 		'alpha' => 'kappa',
+ 	},
+ 	'alpha' => 'gamma'
+ );
+
+ print $x->foo; #prints 'bar' (from conf file)
+ print $x->one; #prints 'two' (from conf file)
+ print $x->mister; #prints 'peepers' (from initial hash)
+ print $x->alpha; #prints 'gamma' (passed argument)
+
 =cut
 
 =pod
@@ -2740,6 +3041,37 @@ package __PACKAGE__;
 	$test->ok($o, 'created object');
 }
 
+package Basset::Test::Testing::__PACKAGE__::init::Subclass3;
+our @ISA = qw(__PACKAGE__);
+my $subclass = 'Basset::Test::Testing::__PACKAGE__::init::Subclass3';
+
+sub known_failure {
+	my $self = shift;
+	return $self->error("I failed", "known_error_code");
+}
+
+sub known_failure_2 {
+	my $self = shift;
+	return;
+}
+
+my $obj1 =  $subclass->new();
+$test->ok($obj1, "Got empty object w/o known failure");
+
+my $obj2 =  $subclass->new(
+	'known_failure' => 1
+);
+
+$test->is($obj2, undef, "obj2 not created because of known_failure");
+$test->is($subclass->errcode, 'known_error_code', 'proper error code');
+
+my $obj3 =  $subclass->new(
+	'known_failure_2' => 1
+);
+
+$test->is($obj3, undef, "obj3 not created because of known_failure_2");
+$test->is($subclass->errcode, 'BO-03', 'proper error code');
+
 =end btest(init)
 
 =cut
@@ -2753,11 +3085,16 @@ sub init {
 
 	my %defaults = ();
 
+	if (ref $_[0] eq 'HASH') {
+		my $defhash = shift @_;
+		@defaults{keys %$defhash} = values %$defhash;
+	}
+
 	#initialize our values brought in from the conf file
 	foreach my $pkg (@$parents){
 
 		my %pkgdef = map {substr($_,1), $conf->{$pkg}->{$_}} grep {/^-/} keys %{$conf->{$pkg}};
-		
+
 		@defaults{keys %pkgdef} = values %pkgdef;
 
 	}
@@ -2807,7 +3144,6 @@ our @ISA = qw(__PACKAGE__);
 
 package Basset::Test::Testing::__PACKAGE__::MainSubClass2;
 our @ISA = qw(__PACKAGE__);
-
 
 package ::Basset::Test::Testing::__PACKAGE__::MainSubClass3;
 our @ISA = qw(__PACKAGE__);
@@ -3058,7 +3394,7 @@ sub pkg_for_type {
 	if (defined $pkg) {
 
 		return unless $class->load_pkg($pkg, $errorless);
-		
+
 		return $pkg;
 
 	} else {
@@ -3070,6 +3406,15 @@ sub pkg_for_type {
 =pod
 
 =item inherits
+
+This method is deprecated and b<will> be removed in Basset 1.0.4. The concept remains the same, but I, like an idiot, overlooked a
+much simpler syntax. Just push the result of pkg_for_type onto @ISA as normal.
+
+use Basset::Object;
+our @ISA = Basset::Object->pkg_for_type('object');
+
+Voila! Same effect. You may now proceed to read the long expository explanation here as to why you would do that. This exposition is going
+to slide over into the pkg_for_type method.
 
 Basset is a nice framework. It kicks all sorts of ass. But, it's entirely possible that it's not quite functional enough for you.
 Let's say you work for some company, WidgetTech.
@@ -3140,7 +3485,10 @@ Instead, it uses the inherits class method and a classtype.
  package Basset::Object::Persistent;
 
  use Basset::Object;
- Basset::Object->inherits(__PACKAGE__, 'object');
+ #deprecated old way:
+ #Basset::Object->inherits(__PACKAGE__, 'object');
+ #fancy new way:
+ @ISA = ( Basset::Object->pkg_for_type('object') );
 
 Voila! That's basically equivalent to:
 
@@ -3174,21 +3522,6 @@ it.
 
 =cut
 
-=pod
-
-=begin btest(inherits)
-
-package Basset::Test::Testing::__PACKAGE__::inherits::Subclass1;
-__PACKAGE__->inherits('Basset::Test::Testing::__PACKAGE__::inherits::Subclass1', 'object');
-
-package __PACKAGE__;
-
-$test->ok(Basset::Test::Testing::__PACKAGE__::inherits::Subclass1->isa('Basset::Object'), 'subclass inherits from root');
-
-=end btest(inherits)
-
-=cut
-
 sub inherits {
 	my $self	= shift;
 	my $pkg		= shift;
@@ -3204,6 +3537,21 @@ sub inherits {
 
 	return 1;
 }
+
+=pod
+
+=begin btest(inherits)
+
+package Basset::Test::Testing::__PACKAGE__::inherits::Subclass1;
+__PACKAGE__->inherits('Basset::Test::Testing::__PACKAGE__::inherits::Subclass1', 'object');
+
+package __PACKAGE__;
+
+$test->ok(Basset::Test::Testing::__PACKAGE__::inherits::Subclass1->isa('Basset::Object'), 'subclass inherits from root');
+
+=end btest(inherits)
+
+=cut
 
 =pod
 
@@ -3360,75 +3708,21 @@ $test->ok(scalar $o->conf, "Object accessed conf file");
 =cut
 
 sub conf {
-	my $self = shift;
-	return $self->_conf_class->read_conf_file
-		|| $self->error($self->_conf_class->errvals);
-};
+	my $self	= shift->pkg;
+	my $local	= shift || 0;
 
-=pod
+	my $conf = $self->_conf_class->read_conf_file
+		or return $self->error($self->_conf_class->errvals);
 
-=item escape_for_html
-
-class method, all it does is turn &, ", ', <, and > into their respective HTML entities. This is
-here for simplicity of all the subclasses to display things in templates
-
-=cut
-
-=pod
-
-=begin btest(escape_for_html)
-
-$test->is(__PACKAGE__->escape_for_html('&'), '&#38;', 'escapes &');
-$test->is(__PACKAGE__->escape_for_html('a&'), 'a&#38;', 'escapes &');
-$test->is(__PACKAGE__->escape_for_html('&b'), '&#38;b', 'escapes &');
-$test->is(__PACKAGE__->escape_for_html('a&b'), 'a&#38;b', 'escapes &');
-
-$test->is(__PACKAGE__->escape_for_html('"'), '&#34;', 'escapes "');
-$test->is(__PACKAGE__->escape_for_html('a"'), 'a&#34;', 'escapes "');
-$test->is(__PACKAGE__->escape_for_html('"b'), '&#34;b', 'escapes "');
-$test->is(__PACKAGE__->escape_for_html('a"b'), 'a&#34;b', 'escapes "');
-
-$test->is(__PACKAGE__->escape_for_html("'"), '&#39;', "escapes '");
-$test->is(__PACKAGE__->escape_for_html("a'"), 'a&#39;', "escapes '");
-$test->is(__PACKAGE__->escape_for_html("'b"), '&#39;b', "escapes '");
-$test->is(__PACKAGE__->escape_for_html("a'b"), 'a&#39;b', "escapes '");
-
-$test->is(__PACKAGE__->escape_for_html('<'), '&#60;', 'escapes <');
-$test->is(__PACKAGE__->escape_for_html('a<'), 'a&#60;', 'escapes <');
-$test->is(__PACKAGE__->escape_for_html('<b'), '&#60;b', 'escapes <');
-$test->is(__PACKAGE__->escape_for_html('a<b'), 'a&#60;b', 'escapes <');
-
-$test->is(__PACKAGE__->escape_for_html('>'), '&#62;', 'escapes >');
-$test->is(__PACKAGE__->escape_for_html('a>'), 'a&#62;', 'escapes >');
-$test->is(__PACKAGE__->escape_for_html('>b'), '&#62;b', 'escapes >');
-$test->is(__PACKAGE__->escape_for_html('a>b'), 'a&#62;b', 'escapes >');
-
-$test->is(__PACKAGE__->escape_for_html('&>'), '&#38;&#62;', 'escapes &>');
-$test->is(__PACKAGE__->escape_for_html('<">'), '&#60;&#34;&#62;', 'escapes <">');
-$test->is(__PACKAGE__->escape_for_html("&&'"), '&#38;&#38;&#39;', "escapes &&'");
-$test->is(__PACKAGE__->escape_for_html('<&'), '&#60;&#38;', 'escapes <&');
-$test->is(__PACKAGE__->escape_for_html(q('"'')), '&#39;&#34;&#39;&#39;', q(escapes '"''));
-
-$test->is(__PACKAGE__->escape_for_html(), undef, 'escaped nothing returns undef');
-$test->is(__PACKAGE__->escape_for_html(undef), undef, 'escaped undef returns nothing');
-
-=end btest(escape_for_html)
-
-=cut
-
-sub escape_for_html {
-	my $self = shift;
-	my $string = shift;
-
-	if (defined $string) {
-		$string =~ s/&/&#38;/g;
-		$string =~ s/"/&#34;/g;
-		$string =~ s/'/&#39;/g;
-		$string =~ s/</&#60;/g;
-		$string =~ s/>/&#62;/g;
-	};
-
-	return $string;
+	if ($local && defined $conf->{$self}) {
+		return $conf->{$self};
+	}
+	elsif ($local) {
+		return {};
+	}
+	else {
+		return $conf;
+	}
 };
 
 =pod
@@ -3478,7 +3772,6 @@ sub now {
 	my @today = localtime;
 	sprintf("%04d-%02d-%02d %02d:%02d:%02d", $today[5] + 1900, $today[4] + 1, $today[3], @today[2,1,0]);
 }
-
 
 =pod
 
@@ -3617,7 +3910,6 @@ $test->is($class->errcode, 'BO-11', 'proper error code');
 $test->is(scalar($class->perform('methods' => ['able'], 'values' => 'baker')), undef, "values must be arrayref");
 $test->is($class->errcode, 'BO-12', 'proper error code');
 
-
 $test->ok(
 	scalar Basset::Test::Testing::__PACKAGE__::perform::Subclass->perform(
 		'methods' => ['method1'],
@@ -3712,7 +4004,6 @@ $test->ok(!
 	"object failed trying to perform attr1"
 );
 
-
 $test->ok(! 
 	scalar $o->perform(
 		'methods' => ['attr1', 'attr2'],
@@ -3792,6 +4083,9 @@ sub perform {
 	my @errors = ();
 	my @codes = ();
 
+	#non destructive copies
+	($methods, $values) = ([@$methods], [@$values]);
+
 	while (@$methods) {
 		my $method = shift @$methods;
 		my $value = shift @$values;
@@ -3805,7 +4099,7 @@ sub perform {
 		};
 
 		if ($self->can($method)) {
-			unless ($self->$method(@args)) {
+			unless (defined $self->$method(@args)) {
 				if ($args{'continue'}) {
 					push @errors, $self->error();
 					push @codes, $self->errcode || "BO-06";
@@ -3951,7 +4245,6 @@ sub privatize {
 		: $class->system_prefix . $method;
 }
 
-
 =pod
 
 =begin btest(privatize)
@@ -3965,7 +4258,6 @@ $test->is(__PACKAGE__->privatize('__b_foo'), '__b_foo', "__b_foo remains __b_foo
 =end btest(privatize)
 
 =cut
-
 
 =pod
 
@@ -3990,7 +4282,6 @@ sub deprivatize {
 	return $method;
 }
 
-
 =pod
 
 =begin btest(deprivatize)
@@ -4004,7 +4295,6 @@ $test->is(__PACKAGE__->deprivatize('__b_foo'), 'foo', "deprivatized __b_foo");
 =end btest(deprivatize)
 
 =cut
-
 
 =pod
 
@@ -4024,7 +4314,6 @@ sub is_private {
 	return index($method, $class->system_prefix) == 0;
 }
 
-
 =pod
 
 =begin btest(deprivatize)
@@ -4038,10 +4327,6 @@ $test->ok(__PACKAGE__->is_private('__b_foo'), '__b_foo is private');
 =end btest(deprivatize)
 
 =cut
-
-
-
-
 
 =pod
 
@@ -4120,12 +4405,13 @@ $test->is($o2->pkg, "__PACKAGE__", "original part of super package");
 $test->is($c2->pkg, $subclass, "casted object part of sub package");
 $test->is($c2->errcode, $o->errcode, "error codes match, rest is assumed");
 
-
 =end btest(cast)
 
 =cut
 
-#internal attributes, for storing error information
+#used for introspection.
+__PACKAGE__->add_trickle_class_attr('_class_attributes', {});
+__PACKAGE__->add_trickle_class_attr('_instance_attributes', {});
 
 # _obj_error is the object attribute slot for storing the most recent error that occurred. It is
 # set via the first argument to the ->error method when called with an object.
@@ -4146,9 +4432,6 @@ __PACKAGE__->add_trickle_class_attr('_pkg_error');
 # set via the second argument to the ->error method when called with a class.
 # i.e., $class->error('foo', 'bar');	#_pkg_errcode is 'bar'
 __PACKAGE__->add_trickle_class_attr('_pkg_errcode');
-
-
-__PACKAGE__->add_class_attr('populated_trickle_parents', {'Basset::Object' => 1});
 
 =pod
 
@@ -4290,7 +4573,6 @@ __PACKAGE__->add_default_class_attr('use_real_errors');
 This is borrows from objective-C, because I like it so much. Basically, the delegate is a simple
 catch all place for an additional object that operates on your current object.
 
-
  sub some_method {
  	 my $self = shift;
 	 #call the delegate when we call some_method
@@ -4354,7 +4636,21 @@ $test->is(__PACKAGE__->types($typesbkp), $typesbkp, "Re-set original types");
 
 #we're careful not to re-define this one, since it was probably already defined in Basset::Object::Conf, which is necessary due to circular
 #inheritance issues.
-__PACKAGE__->add_trickle_class_attr('types') unless __PACKAGE__->can('types');
+__PACKAGE__->add_trickle_class_attr('types', {}) unless __PACKAGE__->can('types');
+
+#set up our defaults. Config file? Why bother.
+__PACKAGE__->types->{'logger'}				||= 'Basset::Logger';
+__PACKAGE__->types->{'notificationcenter'}	||= 'Basset::NotificationCenter';
+__PACKAGE__->types->{'conf'}				||= 'Basset::Object::Conf';
+__PACKAGE__->types->{'driver'}				||= 'Basset::DB';
+__PACKAGE__->types->{'table'}				||= 'Basset::DB::Table';
+__PACKAGE__->types->{'template'}			||= 'Basset::Template';
+__PACKAGE__->types->{'object'}				||= 'Basset::Object';
+__PACKAGE__->types->{'persistentobject'}	||= 'Basset::Object::Persistent';
+__PACKAGE__->types->{'machine'}				||= 'Basset::Machine';
+__PACKAGE__->types->{'state'}				||= 'Basset::Machine::State';
+__PACKAGE__->types->{'test'}				||= 'Basset::Test';
+
 
 =pod
 
@@ -4441,7 +4737,6 @@ my $restrictions = $subclass->applied_restrictions;
 $test->ok(ref $restrictions eq 'ARRAY', 'applied restrictions are an array');
 $test->is(scalar @$restrictions, 1, "Subclass has 1 restriction");
 $test->is($restrictions->[0], 'specialerror', 'Correct restriction in place');
-
 
 =end btest(applied_restrictions)
 

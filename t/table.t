@@ -1,4 +1,4 @@
-use Test::More tests => 1714;
+use Test::More tests => 974;
 use Basset::DB::Table;
 package Basset::DB::Table;
 {		Test::More::ok(1, "uses strict");
@@ -556,7 +556,7 @@ Test::More::is($o->errcode, 'BDT-13', 'proper error code');
 Test::More::ok("testing is implied", "testing is implied");
 };
 {
-#line 1185  init
+#line 1191  init
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "got object");
@@ -568,7 +568,7 @@ Test::More::is(ref $o->column_aliases, 'HASH', 'column_aliases initialized to ha
 Test::More::is(ref $o->references, 'HASH', 'references initialized to hash');
 };
 {
-#line 1269  cols
+#line 1276  cols
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -594,7 +594,7 @@ Test::More::is($cols{'foxtrot'}, undef, 'foxtrot is not column');
 Test::More::is($cols{'goat'}, undef, 'goat is not column');
 };
 {
-#line 1314  defs
+#line 1321  defs
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -618,7 +618,7 @@ Test::More::is($defs[2], $o->definition->{$cols[2]}, "Definition matches column 
 Test::More::is($defs[3], $o->definition->{$cols[3]}, "Definition matches column 3");
 };
 {
-#line 1360  is_bindable
+#line 1367  is_bindable
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -790,7 +790,7 @@ Test::More::is($o->is_bindable('A', 'charlie'), 0, 'charlie does not bind on all
 Test::More::is($o->is_bindable('A', 'delta'), 1, 'delta binds on all');
 };
 {
-#line 1561  is_selectable
+#line 1568  is_selectable
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -826,7 +826,7 @@ Test::More::is($o->is_selectable('lc("able")'), 1, 'selects double arg function'
 Test::More::is($o->is_selectable('lc("able") as "lc able"'), 1, 'selects aliased double arg function');
 };
 {
-#line 1624  db_translate_write
+#line 1631  db_translate_write
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1089,7 +1089,7 @@ Test::More::is($o->db_translate_write('A', 'delta'), '?', 'db_translate_write fo
 }
 };
 {
-#line 1924  db_translate_read
+#line 1931  db_translate_read
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1126,7 +1126,7 @@ Test::More::is($o->db_translate_read('charlie'), 'charlieselectprime', 'db_trans
 Test::More::is($o->db_translate_read('delta'), 'table.delta', 'db_translate_read for delta on select');
 };
 {
-#line 2000  alias_column
+#line 2007  alias_column
 
 my $o = Basset::DB::Table->new('name' => 'testtable1');
 Test::More::ok($o, "Created object");
@@ -1163,7 +1163,7 @@ Test::More::is($o->alias_column('testtable1.charlie'), 'aliased_charlie', 'prope
 Test::More::is($o->alias_column('testtable1.delta'), 'delta', 'properly aliased able (no alias)');
 };
 {
-#line 2075  column_for_alias
+#line 2082  column_for_alias
 
 my $o = Basset::DB::Table->new('name' => 'testtable2');
 Test::More::ok($o, "Created object");
@@ -1200,7 +1200,7 @@ Test::More::is($o->column_for_alias('testtable2.aliased_charlie'), 'charlie', 'u
 Test::More::is($o->column_for_alias('testtable2.delta'), 'delta', 'properly aliased able (no alias)');
 };
 {
-#line 2142  insert_bindables
+#line 2149  insert_bindables
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1267,7 +1267,7 @@ Test::More::is($bindable2{'charlie'}, undef, 'charlie is not insert bindable');
 Test::More::is($bindable2{'delta'}, undef, 'delta is not insert bindable');
 };
 {
-#line 2235  replace_bindables
+#line 2242  replace_bindables
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1334,7 +1334,7 @@ Test::More::is($bindable2{'charlie'}, undef, 'charlie is not replace bindable');
 Test::More::is($bindable2{'delta'}, undef, 'delta is not replace bindable');
 };
 {
-#line 2322  update_bindables
+#line 2329  update_bindables
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1401,7 +1401,7 @@ Test::More::is($bindable2{'charlie'}, undef, 'charlie is not update bindable');
 Test::More::is($bindable2{'delta'}, undef, 'delta is not update bindable');
 };
 {
-#line 2418  delete_bindables
+#line 2425  delete_bindables
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1442,7 +1442,7 @@ Test::More::is($bindable3{'charlie'}, 1, 'charlie is delete bindable');
 Test::More::is($bindable3{'delta'}, 1, 'delta is delete bindable');
 };
 {
-#line 2470  select_bindables
+#line 2477  select_bindables
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1483,7 +1483,7 @@ Test::More::is($bindable3{'charlie'}, 1, 'charlie is select bindable');
 Test::More::is($bindable3{'delta'}, 1, 'delta is select bindable');
 };
 {
-#line 2541  insert_query
+#line 2548  insert_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1561,7 +1561,7 @@ Test::More::is($o->name('mytable'), 'mytable', "set tablename");
 }
 };
 {
-#line 2670  replace_query
+#line 2677  replace_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1639,7 +1639,7 @@ Test::More::is($o->name('mytable'), 'mytable', "set tablename");
 }
 };
 {
-#line 2801  update_query
+#line 2808  update_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1714,7 +1714,7 @@ Test::More::is($o->name('mytable'), 'mytable', "set tablename");
 }
 };
 {
-#line 2920  delete_query
+#line 2927  delete_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1724,7 +1724,7 @@ Test::More::is($o->name('mytable'), 'mytable', "set tablename");
 Test::More::is($o->delete_query, 'delete from mytable', 'proper delete query');
 };
 {
-#line 2962  select_query
+#line 2969  select_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1803,7 +1803,7 @@ Test::More::is($o->errcode, 'BDT-05', 'proper error code');
 };
 };
 {
-#line 3248  multiselect_query
+#line 3255  multiselect_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -1933,7 +1933,7 @@ Test::More::is(Basset::DB::Table->multiselect_query('use_aliases' => 1, 'tables'
 'multi selected multi table in arrayref with aliases');
 };
 {
-#line 3439  count_query
+#line 3446  count_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Got object");
@@ -1942,7 +1942,7 @@ Test::More::is($o->name('count_query_table'), 'count_query_table', 'Set table na
 Test::More::is($o->count_query, 'select count(1) as count from count_query_table', 'Got count query');
 };
 {
-#line 3469  optimize_query
+#line 3476  optimize_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Got object");
@@ -1950,7 +1950,7 @@ Test::More::is($o->name("test table"), "test table", "set table name");
 Test::More::is($o->optimize_query, 'optimize table test table', "got optimize query");
 };
 {
-#line 3498  describe_query
+#line 3505  describe_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Got object");
@@ -1958,7 +1958,7 @@ Test::More::is($o->name("test table"), "test table", "set table name");
 Test::More::is($o->describe_query, 'desc test table', "got desc query");
 };
 {
-#line 3537  reference_query
+#line 3544  reference_query
 
 my $def = {
 	'user_id' => 'SQL_INTEGER',
@@ -1989,7 +1989,7 @@ Test::More::is(scalar($o->reference_query('foo')), undef, "got nothing for non-r
 Test::More::is($o->errcode, "BDT-14", "Proper error code");
 };
 {
-#line 3601  is_column
+#line 3608  is_column
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2014,7 +2014,7 @@ Test::More::is(scalar($o->is_column), undef, "Cannot call w/o column");
 Test::More::is($o->errcode, "BDT-04", "proper error code");
 };
 {
-#line 3651  is_primary
+#line 3658  is_primary
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2053,7 +2053,7 @@ Test::More::is(scalar($o->is_primary), undef, "Cannot call w/o column");
 Test::More::is($o->errcode, "BDT-01", "proper error code");
 };
 {
-#line 3715  non_primary_cols
+#line 3722  non_primary_cols
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2098,7 +2098,7 @@ Test::More::is($o->definition($def), $def, "Set definition");
 }
 };
 {
-#line 3781  primary_cols
+#line 3788  primary_cols
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2143,7 +2143,7 @@ Test::More::is($o->definition($def), $def, "Set definition");
 }
 };
 {
-#line 3865  foreign_cols
+#line 3872  foreign_cols
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2216,7 +2216,7 @@ Test::More::is($o->errcode, 'BDT-45', "Proper error code");
 }
 };
 {
-#line 3977  referenced_column
+#line 3984  referenced_column
 
 my $def = {
 	'user_id' => 'SQL_INTEGER',
@@ -2250,7 +2250,7 @@ Test::More::is(scalar($o->referenced_column('user_extra')), undef, 'user_id prop
 Test::More::is($o->errcode, "BDT-16", "proper error code");
 };
 {
-#line 4094  attach_to_query
+#line 4103  attach_to_query
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2298,7 +2298,7 @@ Test::More::is(
 	), $query . "\n  where able = ?\n  group by baker\n  having count(*) > 1", "attached where, group by, and having clause");
 };
 {
-#line 4299  join_tables
+#line 4308  join_tables
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2527,7 +2527,7 @@ Test::More::is(scalar(Basset::DB::Table->join_tables($o, $o3)), undef, "Cannot a
 Test::More::is(Basset::DB::Table->errcode, 'BDT-27', 'proper error code');
 };
 {
-#line 4649  many_clause
+#line 4658  many_clause
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Created object");
@@ -2565,7 +2565,7 @@ Test::More::is($o->many_clause('able', 'not', [1, 2, 3]), 'test.able not in (?, 
 Test::More::is($o->many_clause('able', 1, [1, 2, 3]), 'test.able not in (?, ?, ?)', 'built triple not many clause w/arbitrary true value');
 };
 {
-#line 4705  qualified_name
+#line 4714  qualified_name
 
 my $o = Basset::DB::Table->new();
 Test::More::ok($o, "Got object");
@@ -2585,14 +2585,14 @@ Test::More::is($o->qualified_name('test2.foo'), 'test2.foo', 'previously column 
 Test::More::is($o->qualified_name('test2.bar'), 'test2.bar', 'previously column test2.bar properly qualified');
 };
 {
-#line 4754  nonqualified_name
+#line 4763  nonqualified_name
 
 Test::More::is(scalar(Basset::DB::Table->nonqualified_name()), undef, "Could not get nonqualified name w/o column");
 Test::More::is(Basset::DB::Table->nonqualified_name('foo.bar'), 'bar', 'stripped table name');
 Test::More::is(Basset::DB::Table->nonqualified_name('bar'), 'bar', 'returned column w/o table name');
 };
 {
-#line 4963  construct_where_clause
+#line 4972  construct_where_clause
 
 Test::More::ok(! Basset::DB::Table->construct_where_clause, "Cannot construct_where_clause w/o tables");
 Test::More::is(Basset::DB::Table->errcode, "BDT-48", 'proper error code');
@@ -2754,1860 +2754,10 @@ Test::More::is(Basset::DB::Table->errcode, "BDT-49", 'proper error code');
 }
 };
 {
-#line 5140  arbitrary_sql
+#line 5149  arbitrary_sql
 
 my $poclass = Basset::DB::Table->pkg->pkg_for_type('persistentobject');
 
 Test::More::ok($poclass, "Got persistent object class");
 Test::More::ok($poclass->can('arbitrary_sql'), 'persistent class can arbitrary_sql');
-};
-{		Test::More::ok(1, "uses strict");
-		Test::More::ok(1, "uses warnings");
-};
-{#line 215 add_attr
-sub test_accessor {
-	my $self = shift;
-	my $prop = shift;
-	my $extra = shift;
-
-	return $self->error("Not a class attribute", "BO-08") unless ref $self;
-
-	return $extra;
-};
-
-Test::More::ok(\&Basset::DB::Table::test_accessor, "Added test accessor");
-
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Object created");
-
-Test::More::ok(Basset::DB::Table->add_attr('test_attribute1'), "Added attribute for _accessor");
-Test::More::ok($o->can('test_attribute1'), "Object sees attribute");
-Test::More::ok(Basset::DB::Table->can('test_attribute1'), "Class sees attribute");
-
-Test::More::is($o->test_attribute1('testval1'), 'testval1', "Method test_attribute1 mutates");
-Test::More::is($o->test_attribute1(), 'testval1', "Method test_attribute1 accesses");
-Test::More::is($o->test_attribute1(undef), undef, "Method test_attribute1 deletes");
-
-Test::More::is(scalar Basset::DB::Table->test_attribute1('testval17'), undef, "Class fails to mutate");
-Test::More::is(scalar Basset::DB::Table->test_attribute1(), undef, "Class fails to access");
-Test::More::is(scalar Basset::DB::Table->test_attribute1(undef), undef, "Class fails to delete");
-
-Test::More::ok(Basset::DB::Table->add_attr(['test_attribute2', 'test_accessor'], 'excess'), "Added attribute for test_accessor");
-Test::More::ok($o->can('test_attribute2'), "Object sees attribute");
-Test::More::ok(Basset::DB::Table->can('test_attribute2'), "Class sees attribute");
-
-Test::More::is($o->test_attribute2('testval2'), 'excess', "Method test_attribute2 mutates");
-Test::More::is($o->test_attribute2(), 'excess', "Method test_attribute2 accesses");
-Test::More::is($o->test_attribute2(undef), 'excess', "Method test_attribute2 deletes");
-
-Test::More::is(scalar Basset::DB::Table->test_attribute2('testval18'), undef, "Class fails to mutate");
-Test::More::is(scalar Basset::DB::Table->test_attribute2(), undef, "Class fails to access");
-Test::More::is(scalar Basset::DB::Table->test_attribute2(undef), undef, "Class fails to delete");
-
-Test::More::ok(Basset::DB::Table->add_attr('test_attribute3', 'static'), "Added static attribute");
-Test::More::ok($o->can('test_attribute3'), "Object sees attribute");
-Test::More::ok(Basset::DB::Table->can('test_attribute3'), "Class sees attribute");
-
-Test::More::is($o->test_attribute3('status'), 'static', "Method test_attribute3 mutates");
-Test::More::is($o->test_attribute3(), 'static', "Method test_attribute3 accesses");
-Test::More::is($o->test_attribute3(undef), 'static', "Method test_attribute3 deletes");
-
-Test::More::is(scalar Basset::DB::Table->test_attribute3('testval19'), undef, "Class fails to mutate");
-Test::More::is(scalar Basset::DB::Table->test_attribute3(), undef, "Class fails to access");
-Test::More::is(scalar Basset::DB::Table->test_attribute3(undef), undef, "Class fails to delete");
-
-Test::More::ok(Basset::DB::Table->add_attr(['test_attribute4', '_regex_accessor'], '^\d+$', 'Numbers only', 'test code'), "Added numeric only regex attribute");
-Test::More::ok($o->can('test_attribute4'), "Object sees attribute");
-Test::More::ok(Basset::DB::Table->can('test_attribute4'), "Class sees attribute");
-
-Test::More::isnt(scalar $o->test_attribute4('foo'), 'foo', "Method test_attribute4 fails to set non-numeric");
-Test::More::is($o->error, "Numbers only", "Proper object error message");
-Test::More::is($o->errcode, "test code", "Proper object error code");
-Test::More::isnt(scalar $o->test_attribute4('1234567890a'), '1234567890a', "Method test_attribute4 fails to set non-numeric");
-Test::More::is($o->error, "Numbers only", "Proper object error message");
-Test::More::is($o->errcode, "test code", "Proper object error code");
-Test::More::isnt(scalar $o->test_attribute4('a1234567890'), 'a1234567890', "Method test_attribute4 fails to set non-numeric");
-Test::More::is($o->error, "Numbers only", "Proper object error message");
-Test::More::is($o->errcode, "test code", "Proper object error code");
-Test::More::isnt(scalar $o->test_attribute4('123456a7890'), '123456a7890', "Method test_attribute4 fails to set non-numeric");
-Test::More::is($o->error, "Numbers only", "Proper object error message");
-Test::More::is($o->errcode, "test code", "Proper object error code");
-Test::More::is(scalar $o->test_attribute4('12345'), '12345', "Method test_attribute4 mutates");
-Test::More::is(scalar $o->test_attribute4(), '12345', "Method test_attribute4 accesses");
-Test::More::is(scalar $o->test_attribute4(undef), undef, "Method test_attribute4 deletes");
-
-Test::More::is(scalar Basset::DB::Table->test_attribute4('testval20'), undef, "Class fails to mutate");
-Test::More::is(scalar Basset::DB::Table->test_attribute4(), undef, "Class fails to access");
-Test::More::is(scalar Basset::DB::Table->test_attribute4(undef), undef, "Class fails to delete");
-
-Test::More::ok(Basset::DB::Table->add_attr(['test_attribute5', '_regex_accessor'], 'abcD', 'Must contain abcD', 'test code2'), "Added abcD only regex attribute");
-Test::More::ok($o->can('test_attribute5'), "Object sees attribute");
-Test::More::ok(Basset::DB::Table->can('test_attribute5'), "Class sees attribute");
-
-Test::More::isnt(scalar $o->test_attribute5('foo'), 'foo', "Method test_attribute4 fails to set non-abcD");
-Test::More::is($o->error, "Must contain abcD", "Proper object error message");
-Test::More::is($o->errcode, "test code2", "Proper object error code");
-Test::More::isnt(scalar $o->test_attribute5('abc'), 'abc', "Method test_attribute4 fails to set non-abcD");
-Test::More::is($o->error, "Must contain abcD", "Proper object error message");
-Test::More::is($o->errcode, "test code2", "Proper object error code");
-Test::More::isnt(scalar $o->test_attribute5('bcD'), 'bcD', "Method test_attribute4 fails to set non-abcD");
-Test::More::is($o->error, "Must contain abcD", "Proper object error message");
-Test::More::is($o->errcode, "test code2", "Proper object error code");
-Test::More::isnt(scalar $o->test_attribute5('abD'), 'abD', "Method test_attribute4 fails to set non-abcD");
-Test::More::is($o->error, "Must contain abcD", "Proper object error message");
-Test::More::is($o->errcode, "test code2", "Proper object error code");
-Test::More::is(scalar $o->test_attribute5('abcD'), 'abcD', "Method test_attribute5 mutates");
-Test::More::is(scalar $o->test_attribute5('abcDE'), 'abcDE', "Method test_attribute5 mutates");
-Test::More::is(scalar $o->test_attribute5('1abcD'), '1abcD', "Method test_attribute5 mutates");
-Test::More::is(scalar $o->test_attribute5('zabcDz'), 'zabcDz', "Method test_attribute5 mutates");
-Test::More::is(scalar $o->test_attribute5(), 'zabcDz', "Method test_attribute5 accesses");
-Test::More::is(scalar $o->test_attribute5(undef), undef, "Method test_attribute5 deletes");
-
-Test::More::is(scalar Basset::DB::Table->test_attribute5('testval20'), undef, "Class fails to mutate");
-Test::More::is(scalar Basset::DB::Table->test_attribute5(), undef, "Class fails to access");
-Test::More::is(scalar Basset::DB::Table->test_attribute5(undef), undef, "Class fails to delete");
-};
-{#line 377 add_class_attr
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Object created");
-
-Test::More::ok(Basset::DB::Table->add_class_attr('test_class_attribute_1'), "Added test class attribute");
-Test::More::ok($o->can("test_class_attribute_1"), "object can see class attribute");
-Test::More::ok(Basset::DB::Table->can("test_class_attribute_1"), "class can see class attribute");
-
-Test::More::is(Basset::DB::Table->test_class_attribute_1('test value 1'), 'test value 1', 'class method call mutates');
-Test::More::is(Basset::DB::Table->test_class_attribute_1(), 'test value 1', 'class method call accesses');
-Test::More::is(Basset::DB::Table->test_class_attribute_1(undef), undef, 'class method call deletes');
-
-Test::More::is($o->test_class_attribute_1('test value 2'), 'test value 2', 'object method call mutates');
-Test::More::is($o->test_class_attribute_1(), 'test value 2', 'object method call accesses');
-Test::More::is($o->test_class_attribute_1(undef), undef, 'object method call deletes');
-
-Test::More::ok(Basset::DB::Table->add_class_attr('test_class_attribute_2', 14), "Added test class attribute 2");
-Test::More::ok($o->can("test_class_attribute_2"), "object can see class attribute");
-Test::More::ok(Basset::DB::Table->can("test_class_attribute_2"), "class can see class attribute");
-
-Test::More::is(Basset::DB::Table->test_class_attribute_2(), 14, "Class has default arg");
-Test::More::is(Basset::DB::Table->test_class_attribute_2(), 14, "Object has default arg");
-
-Test::More::is(Basset::DB::Table->test_class_attribute_2('test value 3'), 'test value 3', 'class method call mutates');
-Test::More::is(Basset::DB::Table->test_class_attribute_2(), 'test value 3', 'class method call accesses');
-Test::More::is(Basset::DB::Table->test_class_attribute_2(undef), undef, 'class method call deletes');
-
-Test::More::is($o->test_class_attribute_1('test value 4'), 'test value 4', 'class method call mutates');
-Test::More::is($o->test_class_attribute_1(), 'test value 4', 'object method call accesses');
-Test::More::is($o->test_class_attribute_1(undef), undef, 'object method call deletes');
-
-package Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-my $so = Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->new();
-Test::More::ok($so, "Sub-Object created");
-
-Test::More::is(scalar Basset::DB::Table->test_class_attribute_1("newer test val"), "newer test val", "trickle method class re-mutates");
-
-Test::More::is(scalar $so->test_class_attribute_1(), "newer test val", "trickle method sub-object accesses super");
-
-Test::More::is(scalar $so->test_class_attribute_1("testval3"), "testval3", "trickle method sub-object mutates");
-Test::More::is(scalar $so->test_class_attribute_1(), "testval3", "trickle method sub-object accesses");
-Test::More::is(scalar $so->test_class_attribute_1(undef), undef, "trickle method sub-object deletes");
-
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->test_class_attribute_1("testval4"), "testval4", "trickle method class mutates");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->test_class_attribute_1(), "testval4", "trickle method subclass accesses");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->test_class_attribute_1(undef), undef, "trickle method subclass deletes");
-
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->test_class_attribute_1("sub value"), "sub value", "Subclass re-mutates");
-Test::More::is(scalar Basset::DB::Table->test_class_attribute_1(), "sub value", "Super class affected on access");
-
-Test::More::is(scalar Basset::DB::Table->test_class_attribute_1("super value"), "super value", "Super class re-mutates");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->test_class_attribute_1(), "super value", "Sub class affected on access");
-
-package Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass5;
-our @ISA = qw(Basset::DB::Table);
-
-sub conf {
-	return undef;
-};
-
-package Basset::DB::Table;
-
-{
-
-	local $@ = undef;
-
-	eval {
-		Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass5->add_class_attr('test_class_attr');
-	};
-
-	Test::More::like($@, qr/^Conf file error :/, 'could not add class attr w/o conf file');
-}
-
-my $conf = Basset::DB::Table->conf();
-$conf->{'Basset::DB::Table'}->{'_test_attribute'} = 'test value';
-
-Test::More::ok(Basset::DB::Table->add_class_attr('_test_attribute'), 'added test attribute');
-Test::More::is(Basset::DB::Table->_test_attribute, 'test value', 'populated with value from conf fiel');
-};
-{#line 607 add_trickle_class_attr
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Object created");
-
-Test::More::ok(Basset::DB::Table->add_trickle_class_attr('trick_attr1'), "Added test trickle class attribute");
-Test::More::ok($o->can("trick_attr1"), "object can see trickle class attribute");
-Test::More::ok(Basset::DB::Table->can("trick_attr1"), "class can see trickle class attribute");
-
-package Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-my $so = Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->new();
-Test::More::ok($so, "Sub-Object created");
-
-Test::More::is(scalar $o->trick_attr1("testval1"), "testval1", "trickle method object mutates");
-Test::More::is(scalar $o->trick_attr1(), "testval1", "trickle method object accesses");
-Test::More::is(scalar $o->trick_attr1(undef), undef, "trickle method object deletes");
-
-Test::More::is(scalar Basset::DB::Table->trick_attr1("testval2"), "testval2", "trickle method class mutates");
-Test::More::is(scalar Basset::DB::Table->trick_attr1(), "testval2", "trickle method class accesses");
-Test::More::is(scalar Basset::DB::Table->trick_attr1(undef), undef, "trickle method class deletes");
-Test::More::is(scalar Basset::DB::Table->trick_attr1("newer test val"), "newer test val", "trickle method class re-mutates");
-
-Test::More::is(scalar $so->trick_attr1(), "newer test val", "trickle method sub-object accesses super");
-
-Test::More::is(scalar $so->trick_attr1("testval3"), "testval3", "trickle method sub-object mutates");
-Test::More::is(scalar $so->trick_attr1(), "testval3", "trickle method sub-object accesses");
-Test::More::is(scalar $so->trick_attr1(undef), undef, "trickle method sub-object deletes");
-
-Test::More::is(scalar Basset::DB::Table->trick_attr1("supertestval"), "supertestval", "super trickle method class mutates");
-Test::More::is(Basset::DB::Table->trick_attr1(), "supertestval", "trickle method class accesses");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->trick_attr1("testval4"), "testval4", "trickle method class mutates");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->trick_attr1(), "testval4", "trickle method subclass accesses");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->trick_attr1(undef), undef, "trickle method subclass deletes");
-Test::More::is(Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->trick_attr1(), undef, "subclass still sees undef as value");
-
-Test::More::is(scalar Basset::DB::Table->trick_attr1("super value"), "super value", "Super class re-mutates");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->trick_attr1("sub value"), "sub value", "Subclass re-mutates");
-
-Test::More::is(scalar Basset::DB::Table->trick_attr1(), "super value", "Super class unaffected on access");
-Test::More::is(scalar Basset::DB::Table->trick_attr1("new super value"), "new super value", "Super class re-mutates");
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_class_attr::Subclass1->trick_attr1(), "sub value", "Sub class unaffected on access");
-
-package Basset::Test::Testing::Basset::DB::Table::add_trickle_class_attr::Subclass5;
-our @ISA = qw(Basset::DB::Table);
-
-sub conf {
-	return undef;
-};
-
-package Basset::DB::Table;
-
-{
-	local $@ = undef;
-	eval {
-		Basset::Test::Testing::Basset::DB::Table::add_trickle_class_attr::Subclass5->add_class_attr('test_trickle_attr');
-	};
-	Test::More::like($@, qr/^Conf file error :/, 'could not add trickle class attr w/o conf file');
-}
-};
-{#line 741 add_default_attr
-package Basset::Test::Testing::Basset::DB::Table::add_default_class_attr::subclass;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::add_default_class_attr::subclass->add_default_class_attr('some_test_attr'), "Added default class attribute");
-
-package Basset::Test::Testing::Basset::DB::Table::add_default_class_attr::Subclass5;
-our @ISA = qw(Basset::DB::Table);
-
-sub conf {
-	return undef;
-};
-
-package Basset::DB::Table;
-
-{
-	local $@ = undef;
-	eval {
-		Basset::Test::Testing::Basset::DB::Table::add_default_class_attr::Subclass5->add_class_attr('test_default_attr');
-	};
-	Test::More::like($@, qr/^Conf file error :/, 'could not add default class attr w/o conf file');
-}
-};
-{#line 995 add_wrapper
-my $subclass = "Basset::Test::Testing::Basset::DB::Table::add_wrapper";
-my $subclass2 = "Basset::Test::Testing::Basset::DB::Table::add_wrapper2";
-
-package Basset::Test::Testing::Basset::DB::Table::add_wrapper;
-our @ISA = qw(Basset::DB::Table);
-
-$subclass->add_attr('attr1');
-$subclass->add_attr('attr2');
-$subclass->add_attr('before_wrapper');
-$subclass->add_attr('before_wrapper2');
-$subclass->add_attr('after_wrapper');
-$subclass->add_attr('after_wrapper2');
-$subclass->add_attr('code_wrapper');
-
-sub wrapper1 {shift->before_wrapper('set')};
-
-sub wrapper2 {
-	$_[0]->before_wrapper('B4SET');
-	$_[0]->before_wrapper2('set2');
-}
-
-sub wrapper3 {
-	$_[0]->before_wrapper('ASET1');
-	$_[0]->before_wrapper2('ASET2');
-	return $_[2];
-}
-
-sub wrapper5 {
-	$_[0]->before_wrapper('5-BSET1');
-	$_[0]->before_wrapper2('5-BSET2');
-	$_[0]->after_wrapper('5-ASET1');
-	$_[0]->after_wrapper2('5-ASET2');
-}
-
-package Basset::Test::Testing::Basset::DB::Table::add_wrapper2;
-our @ISA = ($subclass);
-
-sub wrapper4 {
-	shift->after_wrapper('AWRAPPER');
-}
-
-package Basset::DB::Table;
-
-Test::More::ok(! $subclass->add_wrapper, "Cannot add wrapper w/o type");
-Test::More::is($subclass->errcode, "BO-31", "proper error code");
-
-Test::More::ok(! $subclass->add_wrapper('before'), "Cannot add wrapper w/o attribute");
-Test::More::is($subclass->errcode, "BO-32", "proper error code");
-
-Test::More::ok(! $subclass->add_wrapper('before', 'bogus_wrapper'), "Cannot add wrapper w/o wrapper");
-Test::More::is($subclass->errcode, "BO-33", "proper error code");
-
-Test::More::ok(! $subclass->add_wrapper('before', 'bogus_attribute', 'bogus_wrapper'), "Cannot add wrapper: bogus attribute");
-Test::More::is($subclass->errcode, "BO-34", "proper error code");
-
-Test::More::ok(! $subclass->add_wrapper('before', 'attr2', 'bogus_wrapper'), "Cannot add wrapper: bogus wrapper");
-Test::More::is($subclass->errcode, "BO-35", "proper error code");
-
-Test::More::ok(! $subclass->add_wrapper('junk', 'attr2', 'wrapper1'), "Cannot add wrapper: bogus type");
-Test::More::is($subclass->errcode, "BO-36", "proper error code");
-
-Test::More::ok($subclass->add_wrapper('before', 'attr1', 'wrapper1'), "added wrapper to ref");
-
-my $o = $subclass->new();
-Test::More::ok($o, "got object");
-
-Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
-Test::More::is($o->attr1('foo'), 'foo', 'set attr1 to foo');
-Test::More::is($o->before_wrapper, 'set', 'before_wrapper is set');
-
-Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
-
-Test::More::ok($subclass->add_wrapper('before', 'attr1', 'wrapper2'), "added wrapper to ref");
-
-Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
-Test::More::is($o->attr1('bar'), 'bar', 'set attr1 to baz');
-Test::More::is($o->before_wrapper, 'set', 'before_wrapper is set');
-Test::More::is($o->before_wrapper2, 'set2', 'before_wrapper2 is set2');
-Test::More::is($o->after_wrapper, undef, 'after_wrapper is undef');
-Test::More::is($o->after_wrapper2, undef, 'after_wrapper2 is undef');
-
-Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
-Test::More::is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
-
-Test::More::ok($subclass->add_wrapper('after', 'attr1', 'wrapper3'), "added after wrapper to ref");
-
-Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
-Test::More::is($o->attr1('baz'), 'baz', 'set attr1 to baz');
-Test::More::is($o->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
-Test::More::is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
-
-my $o2 = $subclass2->new();
-Test::More::ok($o2, "got sub object");
-
-Test::More::ok($subclass2->add_wrapper('before', 'attr1', 'wrapper4'), "added after wrapper to ref");
-
-Test::More::is($o2->before_wrapper, undef, "before_wrapper is undef");
-Test::More::is($o2->attr1('baz'), 'baz', 'set attr1 to baz');
-Test::More::is($o2->before_wrapper, 'ASET1', 'before_wrapper is ASET1');
-Test::More::is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
-Test::More::is($o2->after_wrapper, 'AWRAPPER', 'after_wrapper is AWRAPPER');
-
-Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
-Test::More::is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
-Test::More::is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
-Test::More::is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
-
-Test::More::ok($subclass->add_wrapper('before', 'attr1', 'wrapper5'), "added before wrapper to ref");
-
-Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
-Test::More::is($o->attr1('bar'), 'bar', 'set attr1 to baz');
-Test::More::is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
-Test::More::is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
-Test::More::is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
-Test::More::is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
-
-
-Test::More::is($o2->before_wrapper(undef), undef, "before_wrapper is undef");
-Test::More::is($o2->before_wrapper2(undef), undef, "before_wrapper2 is undef");
-Test::More::is($o2->after_wrapper(undef), undef, "after_wrapper2 is undef");
-Test::More::is($o2->after_wrapper2(undef), undef, "after_wrapper2 is undef");
-
-Test::More::is($o2->before_wrapper, undef, "before_wrapper is undef");
-Test::More::is($o2->attr1('bar'), 'bar', 'set attr1 to baz');
-Test::More::is($o2->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
-Test::More::is($o2->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
-Test::More::is($o2->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
-Test::More::is($o2->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
-
-
-Test::More::is($o->before_wrapper(undef), undef, "before_wrapper is undef");
-Test::More::is($o->before_wrapper2(undef), undef, "before_wrapper2 is undef");
-Test::More::is($o->after_wrapper(undef), undef, "after_wrapper2 is undef");
-Test::More::is($o->after_wrapper2(undef), undef, "after_wrapper2 is undef");
-
-Test::More::is($o->before_wrapper, undef, "before_wrapper is undef");
-Test::More::is($o->attr1('bar'), 'bar', 'set attr1 to baz');
-Test::More::is($o->before_wrapper, 'ASET1', 'before_wrapper is set ASET1');
-Test::More::is($o->before_wrapper2, 'ASET2', 'before_wrapper2 is ASET2');
-Test::More::is($o->after_wrapper, '5-ASET1', 'after_wrapper is 5-ASET1');
-Test::More::is($o->after_wrapper2, '5-ASET2', 'after_wrapper2 is 5-ASET2');
-
-Test::More::ok($subclass->add_wrapper('before', 'attr1', sub {$_[0]->code_wrapper('SET CODE WRAP'); return 1}), 'added coderef wrapper');
-Test::More::is($o->attr1('code'), 'code', 'set attr1 to code');
-Test::More::is($o->code_wrapper, 'SET CODE WRAP', 'properly used coderef wrapper');
-};
-{#line 1237 error
-my $notes = 0;
-
-sub notifier {
-	my $self = shift;
-	my $note = shift;
-	$notes++;
-};
-
-my $center = Basset::DB::Table->pkg_for_type('notificationcenter');
-Test::More::ok($center, "Got notification center class");
-
-
-Test::More::ok(
-	$center->addObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'error',
-		'object' => 'all',
-		'method' => 'notifier'
-	), "Added observer for error notifications"
-);
-
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Object created");
-
-Test::More::is(scalar Basset::DB::Table->error("classerr"), undef, "Class error set and returns undef");
-Test::More::is($notes, 1, "Posted a notification");
-Test::More::is(scalar Basset::DB::Table->error(), 'classerr', "Class error accesses");
-Test::More::is($notes, 1, "No notification");
-
-Test::More::is(scalar Basset::DB::Table->error("classerr2", "classcode2"), undef, "Class error and errcode set and returns undef");
-Test::More::is($notes, 2, "Posted a notification");
-Test::More::is(scalar Basset::DB::Table->error(), 'classerr2', "Class error accesses");
-Test::More::is($notes, 2, "No notification");
-Test::More::is(scalar Basset::DB::Table->errcode(), 'classcode2', "Class Class errcode accesses");
-Test::More::is($notes, 2, "No notification");
-
-Test::More::is(scalar $o->error("objerr"), undef, "Object error set and returns undef");
-Test::More::is($notes, 3, "Posted a notification");
-Test::More::is(scalar $o->error(), 'objerr', "Object error accesses");
-Test::More::is($notes, 3, "No notification");
-Test::More::is(scalar Basset::DB::Table->error(), 'classerr2', "Class error unaffected");
-Test::More::is($notes, 3, "No notification");
-
-Test::More::is(scalar $o->error("objerr2", "objcode2"), undef, "Object error and errcode set and returns undef");
-Test::More::is($notes, 4, "Posted a notification");
-Test::More::is(scalar $o->error(), 'objerr2', "Object error accesses");
-Test::More::is($notes, 4, "No notification");
-Test::More::is(scalar $o->errcode(), 'objcode2', "Object errcode accesses");
-Test::More::is($notes, 4, "No notification");
-Test::More::is(scalar Basset::DB::Table->error(), 'classerr2', "Class error unaffected");
-Test::More::is($notes, 4, "No notification");
-Test::More::is(scalar Basset::DB::Table->errcode(), 'classcode2', "Class errcode unaffected");
-Test::More::is($notes, 4, "No notification");
-
-Test::More::is(scalar Basset::DB::Table->error("classerr3", "clscode3"), undef, "Re-set class error");
-Test::More::is($notes, 5, "Posted notification");
-Test::More::is(scalar $o->error(), 'objerr2', "Object error unchanged");
-Test::More::is($notes, 5, "No notification");
-Test::More::is(scalar $o->errcode(), 'objcode2', "Object errcode unchanged");
-Test::More::is($notes, 5, "No notification");
-
-Test::More::is(scalar $o->error("objerr3", "objcode3", "silently"), undef, "Silently set error");
-Test::More::is($notes, 5, "No notification");
-Test::More::is(scalar $o->error(), 'objerr3', "Object error accesses");
-Test::More::is($notes, 5, "No notification");
-Test::More::is(scalar $o->errcode(), 'objcode3', "Object errcode accesses");
-Test::More::is($notes, 5, "No notification");
-Test::More::is(scalar Basset::DB::Table->error(), 'classerr3', "Class error unaffected");
-Test::More::is($notes, 5, "No notification");
-Test::More::is(scalar Basset::DB::Table->errcode(), 'clscode3', "Class errcode unaffected");
-Test::More::is($notes, 5, "No notification");
-
-Test::More::is(scalar $o->error(["formatted error %d %.2f %s", 13, 3.14, "data"], "ec", "silently"), undef, "Object set formatted error");
-Test::More::is(scalar $o->error, "formatted error 13 3.14 data", "Formatted error accesses");
-Test::More::is(scalar $o->errcode, "ec", "Formatted errcode accesses");
-Test::More::is(scalar Basset::DB::Table->error(), 'classerr3', "Class error unaffected");
-Test::More::is($notes, 5, "No notification");
-Test::More::is(scalar Basset::DB::Table->errcode(), 'clscode3', "Class errcode unaffected");
-Test::More::is($notes, 5, "No notification");
-
-my $confClass = Basset::DB::Table->pkg_for_type('conf');
-Test::More::ok($confClass, "Got conf");
-
-my $cfg = $confClass->conf;
-Test::More::ok($cfg, "Got configuration");
-
-Test::More::ok($cfg->{"Basset::Object"}->{'exceptions'} = 1, "enables exceptions");
-
-eval {
-	$o->error("exception error", "excpcode");
-};
-Test::More::ok($@ =~ /^excpcode /, "Caught object exception code");
-Test::More::is($o->last_exception, "exception error", "Caught object exception");
-Test::More::is(Basset::DB::Table->last_exception, "exception error", "Caught class exception");
-Test::More::is($notes, 6, "Posted a notification");
-
-eval {
-	Basset::DB::Table->error("exception error 2", "excpcode2");
-};
-
-Test::More::ok($@ =~ /^excpcode2 /, "Caught object exception code2");
-Test::More::is($o->last_exception, "exception error 2", "Caught object exception");
-Test::More::is(Basset::DB::Table->last_exception, "exception error 2", "Caught class exception");
-Test::More::is($notes, 7, "Posted a notification");
-
-eval {
-	Basset::DB::Table->error("exception error 3", "excpcode3", "silently");
-};
-Test::More::ok($@ =~ /^excpcode3/, "Caught object exception code3");
-Test::More::is($o->last_exception, "exception error 3", "Caught object exception");
-Test::More::is(Basset::DB::Table->last_exception, "exception error 3", "Caught class exception");
-Test::More::is($notes, 7, "No notification");
-
-Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0,"shut off exceptions");
-
-Test::More::ok(
-	$center->removeObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'error',
-	), "Removed observer for error notifications"
-);
-
-package Basset::Test::Testing::Basset::DB::Table::error::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-sub can {
-	my $self = shift;
-	my $method = shift;
-	return 0 if $method =~ /_..._error/;
-	return $self->SUPER::can($method);
-};
-
-package Basset::DB::Table;
-{
-	local $@ = undef;
-
-	eval {
-		Basset::Test::Testing::Basset::DB::Table::error::Subclass1->error("some error");
-	};
-	Test::More::like($@, qr/^System start up failure/, 'Could not start system when cannot error');
-}
-
-package Basset::Test::Testing::Basset::DB::Table::error::Subclass2;
-our @ISA = qw(Basset::DB::Table);
-
-sub can {
-	my $self = shift;
-	my $method = shift;
-	return 0 if $method =~ /_..._errcode/;
-	return $self->SUPER::can($method);
-};
-
-package Basset::DB::Table;
-
-{
-	local $@ = undef;
-
-	eval {
-		Basset::Test::Testing::Basset::DB::Table::error::Subclass2->error("some error");
-	};
-
-	Test::More::like($@, qr/^System start up failure/, 'Could not start system when cannot errcode');
-
-	Test::More::is(scalar(Basset::Test::Testing::Basset::DB::Table::error::Subclass2->error), undef, 'accessing error merely returns');
-
-}
-};
-{#line 1493 rawerror
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Object created");
-
-Test::More::is(scalar Basset::DB::Table->error("raw class error", "roe"), undef, "Set class error");
-Test::More::is(scalar Basset::DB::Table->rawerror(), "raw class error", "Class raw error accesses");
-Test::More::is(scalar Basset::DB::Table->error(["raw class error %d"], "roe"), undef, "Set formatted class error");
-Test::More::is(ref Basset::DB::Table->rawerror(), 'ARRAY', "Class formatted raw error accesses");
-Test::More::is(Basset::DB::Table->rawerror()->[0], "raw class error %d", "Class formatted raw error accesses");
-
-Test::More::is(scalar $o->error("raw object error", "roe"), undef, "Set object error");
-Test::More::is(scalar $o->rawerror(), "raw object error", "Object raw error accesses");
-Test::More::is(scalar $o->error(["raw object error %d"], "roe"), undef, "Set formatted object error");
-Test::More::is(ref $o->rawerror(), 'ARRAY', "Object formatted raw error accesses");
-Test::More::is($o->rawerror()->[0], 'raw object error %d', "Object formatted raw error accesses");
-Test::More::ok(ref $o->rawerror() eq 'ARRAY', "Class formatted raw error unaffected");
-Test::More::is(Basset::DB::Table->rawerror()->[0], "raw class error %d", "Class formatted raw error unaffected");
-};
-{#line 1546 errcode
-Test::More::is(scalar Basset::DB::Table->error("test error", "test code", "silently"), undef, "Class sets errcode");
-Test::More::is(scalar Basset::DB::Table->errcode(), "test code", "Class accesses");
-};
-{#line 1573 errstring
-Test::More::is(scalar Basset::DB::Table->error("test error", "test code"), undef, "Class sets error & errcode");
-Test::More::is(Basset::DB::Table->errstring(), "test error...with code (test code)", "Class accesses errstring");
-
-Test::More::is(scalar Basset::DB::Table->error("test error2", "test code2", "silently"), undef, "Class silently sets error & errcode");
-Test::More::is(Basset::DB::Table->errstring(), "test error2...with code (test code2)", "Class accesses errstring");
-
-Test::More::is(scalar Basset::DB::Table->error("test error3"), undef, "Class sets error & no errcode");
-Test::More::is(Basset::DB::Table->errstring(), "test error3...with code (code undefined)", "Class accesses errstring");
-
-Test::More::is(scalar Basset::DB::Table->error("test error4", undef, "silently"), undef, "Class silently sets error & no errcode");
-Test::More::is(Basset::DB::Table->errstring(), "test error4...with code (code undefined)", "Class accesses errstring");
-
-Basset::DB::Table->wipe_errors();
-
-Test::More::is(scalar(Basset::DB::Table->errstring), undef, 'errcode returns nothing w/o error and errcode');
-Basset::DB::Table->errcode('test code');
-Test::More::is(Basset::DB::Table->errstring, 'error undefined...with code (test code)', 'errcode returns undefined w/o error');
-};
-{#line 1626 errvals
-my $notes = 0;
-
-sub notifier2 {
-	my $self = shift;
-	my $note = shift;
-	$notes++;
-};
-
-my $center = Basset::DB::Table->pkg_for_type('notificationcenter');
-Test::More::ok($center, "Got notification center class");
-
-
-Test::More::ok(
-	$center->addObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'error',
-		'object' => 'all',
-		'method' => 'notifier2'
-	), "Added observer for error notifications"
-);
-
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Object created");
-
-Test::More::is(scalar $o->error("test error", "test code"), undef, "Object set error");
-Test::More::is($notes, 1, "Posted notification");
-
-my @errvals = $o->errvals;
-Test::More::is($notes, 1, "No notification");
-Test::More::is($errvals[0], "test error", "Object accesses error");
-Test::More::is($notes, 1, "No notification");
-Test::More::is($errvals[1], "test code", "Object accesses error");
-Test::More::is($notes, 1, "No notification");
-Test::More::is($errvals[2], "silently", "errvals always silent");
-Test::More::is($notes, 1, "No notification");
-
-Test::More::ok(
-	$center->removeObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'error',
-	), "Removed observer for error notifications"
-);
-};
-{#line 1700 usererror
-my $translator = Basset::DB::Table->errortranslator();
-Test::More::ok(Basset::DB::Table->errortranslator(
-	{
-		'test code' => "friendly test message",
-		'formatted test error %d' => "friendlier test message",
-		'formatted test error 7' => 'friendliest test message',
-		'extra error' => 'friendliest test message 2'
-	}),
-	'Class set error translator'
-);
-
-my $uses_real = Basset::DB::Table->use_real_errors();
-Test::More::is(Basset::DB::Table->use_real_errors(0), 0, "Uses real errors");
-
-Test::More::is(scalar Basset::DB::Table->error("extra error", "test code"), undef, "Class sets error");
-Test::More::is(Basset::DB::Table->usererror(), "friendliest test message 2", "Class gets user error for literal");
-
-Test::More::is(scalar Basset::DB::Table->error(["formatted test error %d", 7], "test code"), undef, "Class sets formatted error");
-Test::More::is(Basset::DB::Table->usererror(), "friendliest test message", "Class gets user error for formatted string");
-
-Test::More::is(scalar Basset::DB::Table->error(["formatted test error %d", 9], "test code"), undef, "Class sets formatted error");
-Test::More::is(Basset::DB::Table->usererror(), "friendlier test message", "Class gets user error for string format");
-
-Test::More::is(scalar Basset::DB::Table->error("Some test error", "test code"), undef, "Class sets standard error");
-Test::More::is(Basset::DB::Table->usererror(), "friendly test message", "Class gets user error for error code");
-
-Test::More::is(scalar Basset::DB::Table->error("Some unknown error", "unknown code"), undef, "Class sets standard error w/o translation");
-Test::More::is(Basset::DB::Table->usererror(), "Some unknown error", "Class gets no user error");
-
-Test::More::ok(Basset::DB::Table->errortranslator(
-	{
-		'test code' => "friendly test message",
-		'formatted test error %d' => "friendlier test message",
-		'formatted test error 7' => 'friendliest test message',
-		'extra error' => 'friendliest test message 2',
-		'*' => 'star error',
-	}),
-	'Class changed error translator'
-);
-
-Test::More::is(scalar Basset::DB::Table->error("Some unknown error", "unknown code"), undef, "Class sets standard error w/o translation");
-Test::More::is(Basset::DB::Table->usererror(), "star error", "Class gets star error");
-
-Test::More::is(Basset::DB::Table->errortranslator($translator), $translator, 'Class reset error translator');
-Test::More::is(Basset::DB::Table->use_real_errors($uses_real), $uses_real, "resets uses real errors");
-};
-{#line 1801 wipe_errors
-Test::More::is(scalar Basset::DB::Table->error("test error", "error code"), undef, "Class set error and errcode");
-Test::More::is(Basset::DB::Table->error(), "test error", "Class accesses error");
-Test::More::is(Basset::DB::Table->errcode(), "error code", "Class accesses errcode");
-Test::More::ok(Basset::DB::Table->wipe_errors(), "Class wiped errors");
-Test::More::is(Basset::DB::Table->error(), undef, "Class error wiped out");
-Test::More::is(Basset::DB::Table->errcode(), undef, "Class errcode wiped out");
-
-my $confClass = Basset::DB::Table->pkg_for_type('conf');
-Test::More::ok($confClass, "Got conf");
-
-my $cfg = $confClass->conf;
-Test::More::ok($cfg, "Got configuration");
-
-Test::More::ok($cfg->{"Basset::Object"}->{'exceptions'} = 1, "enables exceptions");
-
-eval {
-	Basset::DB::Table->error("test exception", "test exception code");
-};
-Test::More::ok($@, "Caught exception");
-Test::More::like($@, qr/test exception code/, "Exception matches");
-Test::More::like(Basset::DB::Table->last_exception, qr/test exception/, "Exception is present");
-Test::More::ok(Basset::DB::Table->wipe_errors(), "Class wiped errors");
-Test::More::is(Basset::DB::Table->last_exception, undef, "last exception wiped out");
-Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0,"disables exceptions");
-};
-{#line 1874 notify
-my $test1notes = undef;
-my $test2notes = undef;
-
-sub test1notifier {
-	my $self = shift;
-	my $note = shift;
-	$test1notes = $note->{'args'}->[0];
-};
-
-sub test2notifier {
-	my $self = shift;
-	my $note = shift;
-	$test2notes = $note->{'args'}->[0];
-};
-
-my $center = Basset::DB::Table->pkg_for_type('notificationcenter');
-Test::More::ok($center, "Got notification center class");
-
-Test::More::ok(
-	$center->addObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'test1',
-		'object' => 'all',
-		'method' => 'test1notifier'
-	), "Added observer for test1 notifications"
-);
-
-Test::More::ok(
-	$center->addObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'test2',
-		'object' => 'all',
-		'method' => 'test2notifier'
-	), "Added observer for test2 notifications"
-);
-
-
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Object created");
-
-Test::More::ok(Basset::DB::Table->notify('test1', "Test 1 note 1"), "Class posted notification");
-Test::More::is($test1notes, "Test 1 note 1", "Received note");
-Test::More::is($test2notes, undef, "No note for test 2");
-
-Test::More::ok(Basset::DB::Table->notify('test2', "Test 2 note 2"), "Class posted notification");
-Test::More::is($test2notes, "Test 2 note 2", "Received note");
-Test::More::is($test1notes, "Test 1 note 1", "Test 1 note unchanged");
-
-Test::More::ok(
-	$center->removeObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'test1',
-	), "Removed observer for test1 notifications"
-);
-
-Test::More::ok(
-	$center->addObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'test1',
-		'object' => $o,
-		'method' => 'test1notifier'
-	), "Added specific observer for test1 notifications"
-);
-
-Test::More::ok(Basset::DB::Table->notify('test1', 'Test 1 note 2'), "Class posted notification");
-Test::More::is($test1notes, "Test 1 note 1", "Test 1 note unchanged");
-Test::More::is($test2notes, "Test 2 note 2", "Test 2 note unchanged");
-
-Test::More::ok($o->notify('test1', 'Test 1 note 3'), "Object posted notification");
-Test::More::is($test1notes, "Test 1 note 3", "Recieved note");
-
-Test::More::is($test2notes, "Test 2 note 2", "Test 2 note unchanged");
-
-
-
-Test::More::ok(
-	$center->removeObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'test1',
-	), "Removed observer for test1 notifications"
-);
-
-
-Test::More::ok(
-	$center->removeObserver(
-		'observer' => 'Basset::DB::Table',
-		'notification'	=> 'test2',
-	), "Removed observer for test2 notifications"
-);
-};
-{#line 2028 add_restrictions
-package Basset::Test::Testing::Basset::DB::Table::add_restrictions::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-my %restrictions = (
-	'specialerror' => [
-		'error' => 'error2',
-		'errcode' => 'errcode2'
-	],
-	'invalidrestriction' => [
-		'junkymethod' => 'otherjunkymethod'
-	]
-);
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::add_restrictions::Subclass1->add_restrictions(%restrictions), "Added restrictions to subclass");
-};
-{#line 2100 add_restricted_method
-package Basset::Test::Testing::Basset::DB::Table::add_restricted_method::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-my %restrictions = (
-	'specialerror' => [
-		'error' => 'error2',
-		'errcode' => 'errcode2'
-	],
-	'invalidrestriction' => [
-		'junkymethod' => 'otherjunkymethod'
-	]
-);
-
-Basset::DB::Table->add_class_attr('e2');
-Basset::DB::Table->add_class_attr('c2');
-
-Test::More::is(Basset::DB::Table->e2(0), 0, "set e2 to 0");
-Test::More::is(Basset::DB::Table->c2(0), 0, "set c2 to 0");
-
-sub error2 {
-	my $self = shift;
-	$self->e2($self->e2 + 1);
-	return $self->SUPER::error(@_);
-}
-
-sub errcode2 {
-	my $self = shift;
-	$self->c2($self->c2 + 1);
-	return $self->SUPER::errcode(@_);
-}
-
-Test::More::ok(scalar Basset::Test::Testing::Basset::DB::Table::add_restricted_method::Subclass1->add_restrictions(%restrictions), "Added restrictions to subclass");
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::add_restricted_method::Subclass1->isa('Basset::DB::Table'), 'Proper subclass');
-
-my $subclass = Basset::Test::Testing::Basset::DB::Table::add_restricted_method::Subclass1->inline_class();
-Test::More::ok(scalar $subclass, "Got restricted class");
-Test::More::ok($subclass->restricted, "Subclass is restricted");
-Test::More::ok(scalar $subclass->isa('Basset::Test::Testing::Basset::DB::Table::add_restricted_method::Subclass1'), "Is subclass");
-Test::More::ok(scalar $subclass->isa('Basset::DB::Table'), "Is subclass");
-
-Test::More::ok(scalar $subclass->add_restricted_method('specialerror', 'error'), "Restricted error");
-Test::More::ok(scalar $subclass->add_restricted_method('specialerror', 'errcode'), "Restricted errcode");
-Test::More::ok(! scalar $subclass->add_restricted_method('invalidrestriction', 'junkymethod'), "Could not add invalid restriction");
-
-Test::More::ok(! scalar $subclass->add_restricted_method('specialerror', 'error2'), "Could not add invalid restricted method");
-Test::More::ok(! scalar $subclass->add_restricted_method('specialerror', 'errcode2'), "Could not add invalid restricted method");
-Test::More::ok(! scalar $subclass->add_restricted_method('specialerror', 'junkymethod2'), "Could not add invalid restricted method");
-
-my $e2 = $subclass->e2;
-my $c2 = $subclass->c2;
-
-#we post silently or else error and errcode would be called when it posts the error notification.
-Test::More::is(scalar $subclass->error("test error", "test code", "silently"), undef, "Set error for subclass");
-
-Test::More::is($subclass->e2, $e2 + 1, "Subclass restricted error incremented");
-Test::More::is($subclass->c2, $c2, "Subclass restricted errcode unchanged");
-Test::More::is($subclass->error(), "test error", "Subclass accesses error method");
-Test::More::is($subclass->e2, $e2 + 2, "Subclass restricted error incremented");
-Test::More::is($subclass->c2, $c2, "Subclass restricted errcode unchanged");
-Test::More::is($subclass->errcode(), "test code", "Subclass accesses errcode method");
-Test::More::is($subclass->e2, $e2 + 2, "Subclass restricted error unchanged");
-Test::More::is($subclass->c2, $c2 + 1, "Subclass restricted errcode incremented");
-
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::add_restricted_method::Subclass1->error("super test error", "super test code", "silently"), undef, "Superclass sets error");
-Test::More::is($subclass->e2, $e2 + 2, "Subclass restricted error unchanged");
-Test::More::is($subclass->c2, $c2 + 1, "Subclass restricted errcode unchanged");
-};
-{#line 2237 failed_restricted_method
-package Basset::Test::Testing::Basset::DB::Table::failed_restricted_method::Subclass2;
-our @ISA = qw(Basset::DB::Table);
-
-sub successful {
-	return 1;
-};
-
-my %restrictions = (
-	'failure' => [
-		'successful' => 'failed_restricted_method',
-	],
-);
-
-package Basset::DB::Table;
-
-my $subclass = Basset::Test::Testing::Basset::DB::Table::failed_restricted_method::Subclass2->inline_class;
-Test::More::ok($subclass, "Got restricted subclass");
-Test::More::ok(scalar $subclass->restricted, "Subclass is restricted");
-Test::More::ok(scalar $subclass->add_restrictions(%restrictions), "Subclass added restrictions");
-
-Test::More::ok(! scalar Basset::DB::Table->failed_restricted_method, "Failed restricted method always fails");
-Test::More::ok(! scalar Basset::Test::Testing::Basset::DB::Table::failed_restricted_method::Subclass2->failed_restricted_method, "Failed restricted method always fails");
-Test::More::ok(! scalar $subclass->failed_restricted_method, "Failed restricted method always fails");
-
-Test::More::ok(scalar Basset::Test::Testing::Basset::DB::Table::failed_restricted_method::Subclass2->successful, "Super Success is successful");
-Test::More::ok(scalar $subclass->successful, "Subclass success is successful");
-Test::More::ok(scalar $subclass->add_restricted_method('failure', 'successful'), "Restricted subclass to fail upon success");
-Test::More::ok(scalar Basset::Test::Testing::Basset::DB::Table::failed_restricted_method::Subclass2->successful, "Super Success is successful");
-Test::More::ok(! scalar $subclass->successful, "Subclass success fails");
-};
-{#line 2291 inline_class
-my $class = Basset::DB::Table->inline_class();
-Test::More::ok($class, "Got restricted class");
-Test::More::ok($class->restricted(), "Class is restricted");
-Test::More::ok(! Basset::DB::Table->restricted(), "Superclass is not restricted");
-};
-{#line 2354 restrict
-package Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-sub successful {
-	return 1;
-};
-
-my %restrictions = (
-	'failure' => [
-		'successful' => 'failed_restricted_method',
-	],
-);
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->add_restrictions(%restrictions), "Subclass added restrictions");
-
-package Basset::DB::Table;
-
-Test::More::ok(scalar Basset::DB::Table->can('failed_restricted_method'), "Basset::DB::Table has failed_restricted_method");
-Test::More::ok(scalar Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->can('failed_restricted_method'), "Subclass has failed_restricted_method");
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->isa('Basset::DB::Table'), 'Proper subclass');
-Test::More::ok(! scalar Basset::DB::Table->failed_restricted_method, "Method properly fails");
-Test::More::ok(! scalar Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->failed_restricted_method, "Method properly fails");
-
-my $subclass = Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->restrict('failure');
-
-Test::More::ok($subclass, "Got restricted subclass");
-
-Test::More::ok($subclass->restricted, "Subclass is restricted");
-Test::More::ok(! Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->restricted, "Superclass unaffected");
-Test::More::ok(! Basset::DB::Table->restricted, "Superclass unaffected");
-
-Test::More::ok(! scalar $subclass->successful, "Subclass restricted");
-Test::More::ok(scalar Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->successful, "Superclass unaffected");
-
-Test::More::ok(scalar Basset::Test::Testing::Basset::DB::Table::restrict::Subclass1->restrict('worthless restriction'), "Added unknown restriction");
-};
-{#line 2451 nonrestricted_parent
-package Basset::Test::Testing::Basset::DB::Table::nonrestricted_parent::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-Test::More::is(Basset::DB::Table->nonrestricted_parent, "Basset::DB::Table", "Basset::DB::Table own nonrestricted parent");
-Test::More::is(Basset::Test::Testing::Basset::DB::Table::nonrestricted_parent::Subclass1->nonrestricted_parent, "Basset::Test::Testing::Basset::DB::Table::nonrestricted_parent::Subclass1", "Subclass own nonrestricted parent");
-
-my $subclass = Basset::Test::Testing::Basset::DB::Table::nonrestricted_parent::Subclass1->inline_class;
-Test::More::ok($subclass, "Got restricted class");
-Test::More::is($subclass->nonrestricted_parent, "Basset::Test::Testing::Basset::DB::Table::nonrestricted_parent::Subclass1", "Restricted class has proper non restricted parent");
-
-my $subclass2 = $subclass->inline_class;
-Test::More::ok($subclass2, "Got restricted class of restricted class");
-Test::More::is($subclass2->nonrestricted_parent, "Basset::Test::Testing::Basset::DB::Table::nonrestricted_parent::Subclass1", "Restricted class has proper non restricted parent");
-
-my $subclass3 = Basset::DB::Table->inline_class;
-Test::More::ok($subclass3, "Got restricted class");
-Test::More::is($subclass3->nonrestricted_parent, "Basset::DB::Table", "Restricted class has proper non restricted parent");
-};
-{#line 2509 dump
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Created object");
-my $o2 = Basset::DB::Table->new();
-Test::More::ok($o2, "Created object");
-
-Test::More::ok($o->dump, "Dumped object");
-Test::More::ok($o->dump(['a']), "Dumped array");
-Test::More::ok($o->dump({'k' => 'v'}), "Dumped hash");
-Test::More::ok($o2->dump, "Dumped other object");
-Test::More::is($o->dump($o2), $o2->dump, "Dumps equal");
-Test::More::is($o->dump, $o2->dump($o), "Dumps equal");
-};
-{#line 2584 new
-my $o = Basset::DB::Table->new();
-
-Test::More::ok($o, "created a new object");
-
-package Basset::Test::Testing::Basset::DB::Table::new::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-Basset::Test::Testing::Basset::DB::Table::new::Subclass1->add_attr('attr1');
-Basset::Test::Testing::Basset::DB::Table::new::Subclass1->add_attr('attr2');
-Basset::Test::Testing::Basset::DB::Table::new::Subclass1->add_attr('attr3');
-Basset::Test::Testing::Basset::DB::Table::new::Subclass1->add_class_attr('class_attr');
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::new::Subclass1->isa('Basset::DB::Table'), "Subclass is subclass");
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::new::Subclass1->can('attr1'), 'class can attr1');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::new::Subclass1->can('attr2'), 'class can attr2');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::new::Subclass1->can('attr3'), 'class can attr3');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::new::Subclass1->can('class_attr'), 'class can class_attr');
-
-my $o2 = Basset::Test::Testing::Basset::DB::Table::new::Subclass1->new();
-Test::More::ok($o2, "created a subclass object");
-
-my $o3 = Basset::Test::Testing::Basset::DB::Table::new::Subclass1->new(
-	'attr1' => 'attr1val',
-);
-
-Test::More::ok($o3, "Created a subclass object");
-Test::More::is(scalar $o3->attr1, 'attr1val', 'subclass object has attribute from constructor');
-
-my $o4 = Basset::Test::Testing::Basset::DB::Table::new::Subclass1->new(
-	'attr1' => 'attr1val',
-	'attr2' => 'attr2val',
-);
-
-Test::More::ok($o4, "Created a subclass object");
-Test::More::is(scalar $o4->attr1, 'attr1val', 'subclass object has attribute from constructor');
-Test::More::is(scalar $o4->attr2, 'attr2val', 'subclass object has attribute from constructor');
-
-my $o5 = Basset::Test::Testing::Basset::DB::Table::new::Subclass1->new(
-	'attr1' => 'attr1val',
-	'attr2' => 'attr2val',
-	'attr7' => 'attr7val',
-	'attr8' => 'attr8val',
-);
-
-Test::More::ok($o5, "Created a subclass object w/junk values");
-Test::More::is(scalar $o5->attr1, 'attr1val', 'subclass object has attribute from constructor');
-Test::More::is(scalar $o5->attr2, 'attr2val', 'subclass object has attribute from constructor');
-
-#these tests would now pass.
-#my $o6 = Basset::Test::Testing::Basset::DB::Table::new::Subclass1->new(
-#	'attr1' => undef,
-#);
-#
-#Test::More::ok(! $o6, "Failed to create object w/undef value");
-
-my $o7 = Basset::Test::Testing::Basset::DB::Table::new::Subclass1->new(
-	'attr1' => 7,
-	'attr2' => 0,
-);
-
-Test::More::ok($o7, "Created object w/0 value");
-Test::More::is($o7->attr1, 7, 'attr1 value set');
-Test::More::is($o7->attr2, 0, 'attr2 value set');
-};
-{#line 2700 init
-package Basset::Test::Testing::Basset::DB::Table::init::Subclass2;
-our @ISA = qw(Basset::DB::Table);
-
-sub conf {
-	return undef;
-};
-
-package Basset::DB::Table;
-
-{
-	my $o = undef;
-	local $@ = undef;
-	$o = Basset::Test::Testing::Basset::DB::Table::init::Subclass2->new();
-	Test::More::is($o, undef, 'could not create object w/o conf file');
-}
-
-{
-	my $o = Basset::DB::Table->new('__j_known_junk_method' => 'a');
-	Test::More::ok($o, 'created object');
-}
-};
-{#line 2782 pkg
-package main::Basset::Test::Testing::Basset::DB::Table::MainSubClass;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::Test::Testing::Basset::DB::Table::MainSubClass2;
-our @ISA = qw(Basset::DB::Table);
-
-
-package ::Basset::Test::Testing::Basset::DB::Table::MainSubClass3;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-Test::More::ok(main::Basset::Test::Testing::Basset::DB::Table::MainSubClass->isa('Basset::DB::Table'), "Created subclass");
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::MainSubClass2->isa('Basset::DB::Table'), "Created subclass");
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::MainSubClass3->isa('Basset::DB::Table'), "Created subclass");
-
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Created object");
-
-my $so1 = main::Basset::Test::Testing::Basset::DB::Table::MainSubClass->new();
-Test::More::ok($so1, "Created sub-object");
-
-my $so2 = Basset::Test::Testing::Basset::DB::Table::MainSubClass2->new();
-Test::More::ok($so2, "Created sub-object");
-
-my $so3 = Basset::Test::Testing::Basset::DB::Table::MainSubClass3->new();
-Test::More::ok($so3, "Created sub-object");
-
-Test::More::is($o->pkg, "Basset::DB::Table", "Superclass works");
-Test::More::is($so1->pkg, "Basset::Test::Testing::Basset::DB::Table::MainSubClass", "Subclass works");
-Test::More::is($so2->pkg, "Basset::Test::Testing::Basset::DB::Table::MainSubClass2", "Subclass works");
-Test::More::is($so3->pkg, "Basset::Test::Testing::Basset::DB::Table::MainSubClass3", "Subclass works");
-};
-{#line 2857 factory
-package Basset::Test::Testing::Basset::DB::Table::factory::Subclass;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-my $oldtypes = Basset::DB::Table->types();
-Test::More::ok($oldtypes, "Saved old types");
-my $newtypes = {%$oldtypes, 'factory_test_type' => 'Basset::DB::Table'};
-Test::More::is(Basset::DB::Table->types($newtypes), $newtypes, "Set new types");
-Test::More::is(Basset::DB::Table->pkg_for_type('factory_test_type'), 'Basset::DB::Table', 'can get class for type');
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Created new object");
-my $o2 = Basset::DB::Table->factory('type' => 'factory_test_type');
-Test::More::ok($o2, "Factoried new object");
-Test::More::ok($o2->isa('Basset::DB::Table'), "Factory object isa class object");
-Test::More::is(Basset::DB::Table->types($oldtypes), $oldtypes, "reset old types");
-};
-{#line 2913 copy
-package Basset::Test::Testing::Basset::DB::Table::copy::subclass;
-our @ISA = qw(Basset::DB::Table);
-
-Basset::Test::Testing::Basset::DB::Table::copy::subclass->add_attr('attr1');
-Basset::Test::Testing::Basset::DB::Table::copy::subclass->add_attr('attr2');
-Basset::Test::Testing::Basset::DB::Table::copy::subclass->add_attr('attr3');
-
-package Basset::DB::Table;
-
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Instantiated object");
-my $o2 = $o->copy;
-Test::More::ok($o2, "Copied object");
-Test::More::is(length $o->dump, length $o2->dump, "dumps are same size");
-
-my $o3 = Basset::Test::Testing::Basset::DB::Table::copy::subclass->new(
-	'attr1' => 'first attribute',
-	'attr2' => 'second attribute',
-	'attr3' => 'third attribute'
-);
-
-Test::More::ok($o3, "Instantiated sub-object");
-
-Test::More::is($o3->attr1, 'first attribute', 'Subobject attr1 matches');
-Test::More::is($o3->attr2, 'second attribute', 'Subobject attr2 matches');
-Test::More::is($o3->attr3, 'third attribute', 'Subobject attr3 matches');
-
-my $o4 = $o3->copy;
-
-Test::More::ok($o4, "Copied sub-object");
-
-Test::More::is($o4->attr1, 'first attribute', 'Copied subobject attr1 matches');
-Test::More::is($o4->attr2, 'second attribute', 'Copied subobject attr2 matches');
-Test::More::is($o4->attr3, 'third attribute', 'Copied subobject attr3 matches');
-
-Test::More::is(length $o3->dump, length $o4->dump, "Sub object dumps are same size");
-
-my $array = ['a', 2, {'foo' => 'bar'}];
-
-Test::More::ok($array, "Got array");
-
-my $array2 = Basset::DB::Table->copy($array);
-
-Test::More::ok($array2, "Copied array");
-Test::More::is($array->[0], $array2->[0], "First element matches");
-Test::More::is($array->[1], $array2->[1], "Second element matches");
-Test::More::is($array->[2]->{'foo'}, $array2->[2]->{'foo'}, "Third element matches");
-};
-{#line 2992 pkg_for_type
-Test::More::ok(Basset::DB::Table->types, "Got types out of the conf file");
-my $typesbkp = Basset::DB::Table->types();
-my $newtypes = {%$typesbkp, 'testtype1' => 'Basset::DB::Table', 'testtype2' => 'boguspkg'};
-Test::More::ok($typesbkp, "Backed up the types");
-Test::More::is(Basset::DB::Table->types($newtypes), $newtypes, "Set new types");
-Test::More::is(Basset::DB::Table->pkg_for_type('testtype1'), 'Basset::DB::Table', "Got class for new type");
-Test::More::ok(! scalar Basset::DB::Table->pkg_for_type('testtype2'), "Could not access invalid type");
-Test::More::is(Basset::DB::Table->errcode, 'BO-29', 'proper error code');
-
-Basset::DB::Table->wipe_errors;
-Test::More::is(scalar(Basset::DB::Table->pkg_for_type('testtype2', 'errorless')), undef, "Could not access invalid type w/ second arg");
-Test::More::is(scalar(Basset::DB::Table->errcode), undef, 'no error code set w/second arg');
-Test::More::is(scalar(Basset::DB::Table->errstring), undef, 'no error string set w/second arg');
-
-my $h = {};
-
-Test::More::is(Basset::DB::Table->types($h), $h, 'wiped out types');
-Test::More::is(scalar(Basset::DB::Table->pkg_for_type('testtype3')), undef, 'could not get type w/o types');
-Test::More::is(Basset::DB::Table->errcode, 'BO-09', 'proper error code for no types');
-
-Test::More::is(Basset::DB::Table->types($typesbkp), $typesbkp, "Re-set original types");
-};
-{#line 3154 inherits
-package Basset::Test::Testing::Basset::DB::Table::inherits::Subclass1;
-Basset::DB::Table->inherits('Basset::Test::Testing::Basset::DB::Table::inherits::Subclass1', 'object');
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::inherits::Subclass1->isa('Basset::Object'), 'subclass inherits from root');
-};
-{#line 3196 isa_path
-Test::More::ok(Basset::DB::Table->isa_path, "Can get an isa_path for root");
-my $path = Basset::DB::Table->isa_path;
-Test::More::is($path->[-1], 'Basset::DB::Table', 'Class has self at end of path');
-
-package Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::Test::Testing::Basset::DB::Table::isa_path::subclass2;
-our @ISA = qw(Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1);
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1->isa('Basset::DB::Table'), 'Subclass of Basset::DB::Table');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::isa_path::subclass2->isa('Basset::DB::Table'), 'Sub-subclass of Basset::DB::Table');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1->isa('Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1'), 'Sub-subclass of subclass');
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1->isa_path, "We have a path");
-my $subpath = Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1->isa_path;
-Test::More::is($subpath->[-2], 'Basset::DB::Table', 'Next to last entry is parent');
-Test::More::is($subpath->[-1], 'Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1', 'Last entry is self');
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::isa_path::subclass2->isa_path, "We have a sub path");
-my $subsubpath = Basset::Test::Testing::Basset::DB::Table::isa_path::subclass2->isa_path;
-
-Test::More::is($subsubpath->[-3], 'Basset::DB::Table', 'Third to last entry is grandparent');
-Test::More::is($subsubpath->[-2], 'Basset::Test::Testing::Basset::DB::Table::isa_path::subclass1', 'Second to last entry is parent');
-Test::More::is($subsubpath->[-1], 'Basset::Test::Testing::Basset::DB::Table::isa_path::subclass2', 'Last entry is self');
-
-package Basset::Test::Testing::Basset::DB::Table::isa_path::Subclass3;
-
-our @ISA = qw(Basset::DB::Table Basset::DB::Table);
-
-package Basset::DB::Table;
-
-my $isa = Basset::Test::Testing::Basset::DB::Table::isa_path::Subclass3->isa_path;
-Test::More::ok($isa, "Got isa path");
-
-#Test::More::is(scalar(@$isa), 2, 'two entries in isa_path');
-Test::More::is($isa->[-2], 'Basset::DB::Table', 'Second to last entry is parent');
-Test::More::is($isa->[-1], 'Basset::Test::Testing::Basset::DB::Table::isa_path::Subclass3', 'Last entry is self');
-};
-{#line 3290 module_for_class
-Test::More::is(scalar(Basset::DB::Table->module_for_class), undef, "Could not get module_for_class w/o package");
-Test::More::is(Basset::DB::Table->errcode, "BO-20", 'proper error code');
-Test::More::is(Basset::DB::Table->module_for_class('Basset::Object'), 'Basset/Object.pm', 'proper pkg -> file name');
-Test::More::is(Basset::DB::Table->module_for_class('Basset::Object::Persistent'), 'Basset/Object/Persistent.pm', 'proper pkg -> file name');
-Test::More::is(Basset::DB::Table->module_for_class('Basset::DB::Table'), 'Basset/DB/Table.pm', 'proper pkg -> file name');
-};
-{#line 3323 conf
-Test::More::ok(scalar Basset::DB::Table->conf, "Class accessed conf file");
-my $o = Basset::DB::Table->new();
-Test::More::ok(scalar $o, "Got object");
-Test::More::ok(scalar $o->conf, "Object accessed conf file");
-};
-{#line 3350 escape_for_html
-Test::More::is(Basset::DB::Table->escape_for_html('&'), '&#38;', 'escapes &');
-Test::More::is(Basset::DB::Table->escape_for_html('a&'), 'a&#38;', 'escapes &');
-Test::More::is(Basset::DB::Table->escape_for_html('&b'), '&#38;b', 'escapes &');
-Test::More::is(Basset::DB::Table->escape_for_html('a&b'), 'a&#38;b', 'escapes &');
-
-Test::More::is(Basset::DB::Table->escape_for_html('"'), '&#34;', 'escapes "');
-Test::More::is(Basset::DB::Table->escape_for_html('a"'), 'a&#34;', 'escapes "');
-Test::More::is(Basset::DB::Table->escape_for_html('"b'), '&#34;b', 'escapes "');
-Test::More::is(Basset::DB::Table->escape_for_html('a"b'), 'a&#34;b', 'escapes "');
-
-Test::More::is(Basset::DB::Table->escape_for_html("'"), '&#39;', "escapes '");
-Test::More::is(Basset::DB::Table->escape_for_html("a'"), 'a&#39;', "escapes '");
-Test::More::is(Basset::DB::Table->escape_for_html("'b"), '&#39;b', "escapes '");
-Test::More::is(Basset::DB::Table->escape_for_html("a'b"), 'a&#39;b', "escapes '");
-
-Test::More::is(Basset::DB::Table->escape_for_html('<'), '&#60;', 'escapes <');
-Test::More::is(Basset::DB::Table->escape_for_html('a<'), 'a&#60;', 'escapes <');
-Test::More::is(Basset::DB::Table->escape_for_html('<b'), '&#60;b', 'escapes <');
-Test::More::is(Basset::DB::Table->escape_for_html('a<b'), 'a&#60;b', 'escapes <');
-
-Test::More::is(Basset::DB::Table->escape_for_html('>'), '&#62;', 'escapes >');
-Test::More::is(Basset::DB::Table->escape_for_html('a>'), 'a&#62;', 'escapes >');
-Test::More::is(Basset::DB::Table->escape_for_html('>b'), '&#62;b', 'escapes >');
-Test::More::is(Basset::DB::Table->escape_for_html('a>b'), 'a&#62;b', 'escapes >');
-
-Test::More::is(Basset::DB::Table->escape_for_html('&>'), '&#38;&#62;', 'escapes &>');
-Test::More::is(Basset::DB::Table->escape_for_html('<">'), '&#60;&#34;&#62;', 'escapes <">');
-Test::More::is(Basset::DB::Table->escape_for_html("&&'"), '&#38;&#38;&#39;', "escapes &&'");
-Test::More::is(Basset::DB::Table->escape_for_html('<&'), '&#60;&#38;', 'escapes <&');
-Test::More::is(Basset::DB::Table->escape_for_html(q('"'')), '&#39;&#34;&#39;&#39;', q(escapes '"''));
-
-Test::More::is(Basset::DB::Table->escape_for_html(), undef, 'escaped nothing returns undef');
-Test::More::is(Basset::DB::Table->escape_for_html(undef), undef, 'escaped undef returns nothing');
-};
-{#line 3414 today
-Test::More::like(Basset::DB::Table->today, qr/^\d\d\d\d-\d\d-\d\d$/, 'matches date regex');
-Test::More::like(Basset::DB::Table->today('abc'), qr/^\d\d\d\d-\d\d-\d\d$/, 'matches date regex despite input');
-};
-{#line 3437 now
-Test::More::like(Basset::DB::Table->now, qr/^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/, 'matches timestamp regex');
-Test::More::like(Basset::DB::Table->now('def'), qr/^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/, 'matches timestamp regex despite input');
-};
-{#line 3466 gen_handle
-Test::More::ok(Basset::DB::Table->gen_handle, "Generated handle");
-my $h = Basset::DB::Table->gen_handle;
-Test::More::ok($h, "Generated second handle");
-Test::More::is(ref $h, "GLOB", "And it's a globref");
-};
-{#line 3541 perform
-package Basset::Test::Testing::Basset::DB::Table::perform::Subclass;
-our @ISA = qw(Basset::DB::Table);
-
-Basset::Test::Testing::Basset::DB::Table::perform::Subclass->add_attr('attr1');
-Basset::Test::Testing::Basset::DB::Table::perform::Subclass->add_attr('attr2');
-Basset::Test::Testing::Basset::DB::Table::perform::Subclass->add_attr('attr3');
-
-sub method1 {
-	return 77;
-}
-
-sub method2 {
-	my $self = shift;
-	return scalar @_;
-};
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::perform::Subclass->isa('Basset::DB::Table'), 'we have a subclass');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::perform::Subclass->can('attr1'), 'subclass has attr1');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::perform::Subclass->can('attr2'), 'subclass has attr2');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::perform::Subclass->can('attr2'), 'subclass has attr3');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::perform::Subclass->can('method1'), 'subclass has method1');
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::perform::Subclass->can('method2'), 'subclass has method2');
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->method1, 77, 'method1 returns 77');
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->method2, 0, 'method2 behaves as expected');
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->method2('a'), 1, 'method2 behaves as expected');
-Test::More::is(scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->method2(0,0), 2, 'method2 behaves as expected');
-
-my $o = Basset::Test::Testing::Basset::DB::Table::perform::Subclass->new();
-
-Test::More::ok($o, "Instantiated object");
-
-my $class = 'Basset::Test::Testing::Basset::DB::Table::perform::Subclass';
-
-Test::More::is(scalar($class->perform), undef, "Cannot perform w/o method");
-Test::More::is($class->errcode, 'BO-04', 'proper error code');
-Test::More::is(scalar($class->perform('methods' => 'able')), undef, "Cannot perform w/o values");
-Test::More::is($class->errcode, 'BO-05', 'proper error code');
-Test::More::is(scalar($class->perform('methods' => 'able', 'values' => 'baker')), undef, "methods must be arrayref");
-Test::More::is($class->errcode, 'BO-11', 'proper error code');
-Test::More::is(scalar($class->perform('methods' => ['able'], 'values' => 'baker')), undef, "values must be arrayref");
-Test::More::is($class->errcode, 'BO-12', 'proper error code');
-
-
-Test::More::ok(
-	scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->perform(
-		'methods' => ['method1'],
-		'values' => ['a'],
-	),
-	"Class performs method1");
-
-Test::More::ok(
-	scalar $o->perform(
-		'methods' => ['method1'],
-		'values' => ['a'],
-	),
-	"Object performs method1");
-
-Test::More::ok(! 
-	scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->perform(
-		'methods' => ['method2'],
-		'values' => [],
-	),
-	"Class cannot perform method2 w/o args");
-
-Test::More::ok(
-	scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->perform(
-		'methods' => ['method2'],
-		'values' => ['a']
-	),
-	"Class performs method2 w/1 arg");
-
-Test::More::ok(
-	scalar Basset::Test::Testing::Basset::DB::Table::perform::Subclass->perform(
-		'methods' => ['method2'],
-		'values' => ['b'],
-	),
-	"Class performs method2 w/1 arg in arrayref");
-
-Test::More::ok(! 
-	scalar $o->perform(
-		'methods' => ['attr1'],
-		'values' => []
-	),
-	"object cannot access attribute w/o args"
-);
-
-Test::More::is(scalar $o->attr1, undef, 'attr1 is undefined');
-Test::More::is(scalar $o->attr2, undef, 'attr2 is undefined');
-Test::More::is(scalar $o->attr3, undef, 'attr3 is undefined');
-
-Test::More::ok(
-	scalar $o->perform(
-		'methods' => ['attr1'],
-		'values' => ['attr1_val']
-	),
-	"object performed attr1"
-);
-
-Test::More::is(scalar $o->attr1(), 'attr1_val', 'attr1 set via perform');
-
-Test::More::ok(
-	scalar $o->perform(
-		'methods' => ['attr2', 'attr3'],
-		'values' => ['attr2_val', 'attr3_val']
-	),
-	"object performed attr2, attr3"
-);
-
-Test::More::is(scalar $o->attr2(), 'attr2_val', 'attr2 set via perform');
-Test::More::is(scalar $o->attr3(), 'attr3_val', 'attr3 set via perform');
-
-Test::More::ok(! 
-	scalar $o->perform(
-		'methods' => ['attr4'],
-		'values' => ['attr4_val']
-	),
-	"object cannot perform unknown method"
-);
-
-Test::More::ok(! 
-	scalar $o->perform(
-		'methods' => ['attr4', 'attr2'],
-		'values' => ['attr4_val', 'attr2_val_2'],
-	),
-	'object cannot perform unknown method w/known method'
-);
-
-Test::More::is(scalar $o->attr2, 'attr2_val', 'attr2 unchanged');
-
-Test::More::ok(! 
-	scalar $o->perform(
-		'methods' => ['attr1'],
-		'values' => [undef]
-	),
-	"object failed trying to perform attr1"
-);
-
-
-Test::More::ok(! 
-	scalar $o->perform(
-		'methods' => ['attr1', 'attr2'],
-		'values' => [undef, 'attr2_val_2'],
-	),
-	'object failed trying to perform attr1'
-);
-
-Test::More::is(scalar $o->attr2, 'attr2_val', 'attr2 unchanged');
-
-Test::More::ok(! 
-	scalar $o->perform(
-		'methods' => ['attr1', 'attr2'],
-		'values' => [undef, 'attr2_val_2'],
-		'continue' => 1,
-	),
-	'object failed trying to perform attr1'
-);
-
-Test::More::is(scalar $o->attr2, 'attr2_val_2', 'attr2 changed due to continue');
-
-my $arr = ['a', 'b'];
-Test::More::ok($arr, "Have an arrayref");
-
-Test::More::ok(
-	scalar $o->perform(
-		'methods' => ['attr3'],
-		'values' => [$arr],
-	),
-	"Performed attr3"
-);
-
-Test::More::is($o->attr3, $arr, "attr3 contains arrayref");
-
-Test::More::ok(
-	scalar $o->perform(
-		'methods' => ['attr3'],
-		'values' => [$arr],
-		'dereference' => ['attr3'],
-	),
-	"Performed attr3 with de-reference"
-);
-
-Test::More::is($o->attr3, 'a', "attr3 contains first element of arrayref");
-
-Test::More::ok(
-	scalar $o->perform(
-		'methods' => ['attr2', 'attr3'],
-		'values' => [$arr, $arr],
-		'dereference' => ['attr2'],
-	),
-	"Performed attr3 with de-reference"
-);
-
-Test::More::is($o->attr2, 'a', "attr2 contains first element of arrayref");
-Test::More::is($o->attr3, $arr, "attr3 contains arrayref");
-};
-{#line 3812 stack_trace
-sub tracer {
-	return Basset::DB::Table->stack_trace;
-};
-
-Test::More::ok(tracer(), "Got a stack trace");
-my $trace = tracer();
-Test::More::ok($trace, "Has a stack trace");
-Test::More::like($trace, qr/Package:/, "Contains word: 'Package:'");
-Test::More::like($trace, qr/Filename:/, "Contains word: 'Filename:'");
-Test::More::like($trace, qr/Line number:/, "Contains word: 'Line number:'");
-Test::More::like($trace, qr/Subroutine:/, "Contains word: 'Subroutine:'");
-Test::More::like($trace, qr/Has Args\? :/, "Contains word: 'Has Args:'");
-Test::More::like($trace, qr/Want array\? :/, "Contains word: 'Want array:'");
-Test::More::like($trace, qr/Evaltext:/, "Contains word: 'Evaltext:'");
-Test::More::like($trace, qr/Is require\? :/, "Contains word: 'Is require:'");
-};
-{#line 3864 no_op
-Test::More::ok(Basset::DB::Table->no_op, "No op");
-Test::More::is(Basset::DB::Table->no_op, 1, "No op is 1");
-my $obj = Basset::DB::Table->new();
-Test::More::ok($obj, "Got object");
-Test::More::ok($obj->no_op, "Object no ops");
-Test::More::is($obj->no_op, 1, "Object no op is 1");
-};
-{#line 3888 system_prefix
-Test::More::is(Basset::DB::Table->system_prefix(), '__b_', 'expected system prefix');
-};
-{#line 3920 privatize
-Test::More::ok(! Basset::DB::Table->privatize, 'Cannot privatize w/o method');
-Test::More::is(Basset::DB::Table->errcode, "BO-24", "proper error code");
-
-Test::More::is(Basset::DB::Table->privatize('foo'), '__b_foo', "privatized foo");
-Test::More::is(Basset::DB::Table->privatize('__b_foo'), '__b_foo', "__b_foo remains __b_foo");
-};
-{#line 3958 deprivatize
-Test::More::ok(! Basset::DB::Table->deprivatize, 'Cannot deprivatize w/o method');
-Test::More::is(Basset::DB::Table->errcode, "BO-25", "proper error code");
-
-Test::More::is(Basset::DB::Table->deprivatize('foo'), 'foo', "deprivatized foo");
-Test::More::is(Basset::DB::Table->deprivatize('__b_foo'), 'foo', "deprivatized __b_foo");
-};
-{#line 3991 deprivatize
-Test::More::ok(! Basset::DB::Table->is_private, 'Cannot is_private w/o method');
-Test::More::is(Basset::DB::Table->errcode, "BO-26", "proper error code");
-
-Test::More::ok(! Basset::DB::Table->is_private('foo'), 'foo is not private');
-Test::More::ok(Basset::DB::Table->is_private('__b_foo'), '__b_foo is private');
-};
-{#line 4046 cast
-package Basset::Test::Testing::Basset::DB::Table::cast::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-#pretend it was loaded normally
-$INC{Basset::DB::Table->module_for_class("Basset::Test::Testing::Basset::DB::Table::cast::Subclass1")}++;
-
-my $subclass = "Basset::Test::Testing::Basset::DB::Table::cast::Subclass1";
-
-Test::More::ok(! Basset::DB::Table->cast, "Cannot cast classes");
-Test::More::is(Basset::DB::Table->errcode, "BO-21", "proper error code");
-
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "got object");
-
-Test::More::ok(! $o->cast, "Cannot cast w/o class");
-Test::More::is($o->errcode, "BO-22", "proper error code");
-my $c = $o->cast($subclass, 'copy');
-Test::More::ok($c, "casted object");
-Test::More::is($o->pkg, "Basset::DB::Table", "original part of super package");
-Test::More::is($c->pkg, $subclass, "casted object part of sub package");
-Test::More::is($c->errcode, $o->errcode, "error codes match, rest is assumed");
-
-my $o2 = Basset::DB::Table->new();
-Test::More::ok($o2, "got object");
-
-Test::More::ok(! $o2->cast, "Cannot cast w/o class");
-Test::More::is($o2->errcode, "BO-22", "proper error code");
-my $c2 = $o2->cast($subclass, 'copy');
-Test::More::ok($c2, "casted object");
-Test::More::is($o2->pkg, "Basset::DB::Table", "original part of super package");
-Test::More::is($c2->pkg, $subclass, "casted object part of sub package");
-Test::More::is($c2->errcode, $o->errcode, "error codes match, rest is assumed");
-};
-{#line 4149 errortranslator
-my $uses_real = Basset::DB::Table->use_real_errors();
-Test::More::is(Basset::DB::Table->use_real_errors(0), 0, "Uses real errors");
-
-my $translator = {
-	'test error' => 'test message'
-};
-
-Test::More::ok($translator, "Created translator");
-Test::More::is(Basset::DB::Table->errortranslator($translator), $translator, "Set translator");
-Test::More::is(scalar Basset::DB::Table->error('test error', 'test code'), undef, "Set error");
-Test::More::is(Basset::DB::Table->usererror(), 'test message', 'Re-wrote error message');
-
-Test::More::is(Basset::DB::Table->errortranslator($uses_real), $uses_real, 'Class reset uses real error');
-};
-{#line 4181 use_real_errors
-my $translator = Basset::DB::Table->errortranslator();
-Test::More::ok(Basset::DB::Table->errortranslator(
-	{
-		'test code' => "friendly test message",
-		'formatted test error %d' => "friendlier test message",
-		'formatted test error 7' => 'friendliest test message',
-		'extra error' => 'friendliest test message 2'
-	}),
-	'Class set error translator'
-);
-
-my $uses_real = Basset::DB::Table->use_real_errors();
-
-my $confClass = Basset::DB::Table->pkg_for_type('conf');
-Test::More::ok($confClass, "Got conf");
-
-my $cfg = $confClass->conf;
-Test::More::ok($cfg, "Got configuration");
-
-Test::More::ok($cfg->{"Basset::Object"}->{'use_real_errors'} = 1, "enables real errors");
-
-Test::More::is(scalar Basset::DB::Table->error("extra error", "test code"), undef, "Class sets error");
-Test::More::is(Basset::DB::Table->usererror(), "extra error...with code (test code)", "Class gets literal error for literal");
-
-Test::More::is(scalar Basset::DB::Table->error(["formatted test error %d", 7], "test code"), undef, "Class sets formatted error");
-Test::More::is(Basset::DB::Table->usererror(), "formatted test error 7...with code (test code)", "Class gets literal error for formatted string");
-
-Test::More::is(scalar Basset::DB::Table->error(["formatted test error %d", 9], "test code"), undef, "Class sets formatted error");
-Test::More::is(Basset::DB::Table->usererror(), "formatted test error 9...with code (test code)", "Class gets literal error for string format");
-
-Test::More::is(scalar Basset::DB::Table->error("Some test error", "test code"), undef, "Class sets standard error");
-Test::More::is(Basset::DB::Table->usererror(), "Some test error...with code (test code)", "Class gets literal error for error code");
-
-Test::More::is(scalar Basset::DB::Table->error("Some unknown error", "unknown code"), undef, "Class sets standard error w/o translation");
-Test::More::is(Basset::DB::Table->usererror(), "Some unknown error...with code (unknown code)", "Class gets no user error");
-
-Test::More::ok(Basset::DB::Table->errortranslator(
-	{
-		'test code' => "friendly test message",
-		'formatted test error %d' => "friendlier test message",
-		'formatted test error 7' => 'friendliest test message',
-		'extra error' => 'friendliest test message 2',
-		'*' => 'star error',
-	}),
-	'Class changed error translator'
-);
-
-Test::More::is(scalar Basset::DB::Table->error("Some unknown error", "unknown code"), undef, "Class sets standard error w/o translation");
-Test::More::is(Basset::DB::Table->usererror(), "Some unknown error...with code (unknown code)", "Class gets literal star error");
-
-Test::More::is(Basset::DB::Table->errortranslator($translator), $translator, 'Class reset error translator');
-#Test::More::is(Basset::DB::Table->errortranslator($uses_real), $uses_real, 'Class reset uses real error');
-#Test::More::ok('foo', 'bar');
-Test::More::is($cfg->{"Basset::DB::Table"}->{'use_real_errors'} = $uses_real, $uses_real, "enables reset uses real errors");
-};
-{#line 4263 delegate
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Set up object");
-my $o2 = Basset::DB::Table->new();
-Test::More::ok($o2, "Set up second object");
-Test::More::ok(! scalar Basset::DB::Table->delegate($o), "Class cannot set delegate");
-Test::More::is(scalar $o->delegate($o2), $o2, "Object set delegate");
-Test::More::is(scalar $o->delegate(), $o2, "Object accessed delegate");
-Test::More::is(scalar $o->delegate(undef), undef, "Object deleted delegate");
-};
-{#line 4296 types
-Test::More::ok(Basset::DB::Table->types, "Got types out of the conf file");
-my $typesbkp = Basset::DB::Table->types();
-my $newtypes = {%$typesbkp, 'testtype1' => 'Basset::DB::Table', 'testtype2' => 'boguspkg'};
-Test::More::ok($typesbkp, "Backed up the types");
-Test::More::is(Basset::DB::Table->types($newtypes), $newtypes, "Set new types");
-Test::More::is(Basset::DB::Table->pkg_for_type('testtype1'), 'Basset::DB::Table', "Got class for new type");
-Test::More::ok(! scalar Basset::DB::Table->pkg_for_type('testtype2'), "Could not access invalid type");
-Test::More::is(Basset::DB::Table->types($typesbkp), $typesbkp, "Re-set original types");
-};
-{#line 4325 restrictions
-package Basset::Test::Testing::Basset::DB::Table::restrictions::subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::restrictions::subclass1->isa('Basset::DB::Table'), 'proper subclass');
-my $restrictions = {
-	'foo' => [
-		'a' => 'b'
-	]
-};
-Test::More::ok($restrictions, 'made restrictions');
-Test::More::is(Basset::Test::Testing::Basset::DB::Table::restrictions::subclass1->restrictions($restrictions), $restrictions, 'added restrictions');
-Test::More::is(Basset::Test::Testing::Basset::DB::Table::restrictions::subclass1->restrictions, $restrictions, 'accessed restrictions');
-};
-{#line 4349 applied_restrictions
-package Basset::Test::Testing::Basset::DB::Table::applied_restrictions::Subclass;
-our @ISA = qw(Basset::DB::Table);
-
-my %restrictions = (
-	'specialerror' => [
-		'error' => 'error3',
-		'errcode' => 'errcode3'
-	],
-	'invalidrestriction' => [
-		'junkymethod' => 'otherjunkymethod'
-	]
-);
-
-Basset::DB::Table->add_class_attr('e3');
-Basset::DB::Table->add_class_attr('c3');
-
-Test::More::is(Basset::DB::Table->e3(0), 0, "set e3 to 0");
-Test::More::is(Basset::DB::Table->c3(0), 0, "set c3 to 0");
-
-sub error3 {
-	my $self = shift;
-	$self->e3($self->e3 + 1);
-	return $self->SUPER::error(@_);
-}
-
-sub errcode3 {
-	my $self = shift;
-	$self->c3($self->c3 + 1);
-	return $self->SUPER::errcode(@_);
-}
-
-Test::More::ok(scalar Basset::Test::Testing::Basset::DB::Table::applied_restrictions::Subclass->add_restrictions(%restrictions), "Added restrictions to subclass");
-
-package Basset::DB::Table;
-
-Test::More::ok(Basset::Test::Testing::Basset::DB::Table::applied_restrictions::Subclass->isa('Basset::DB::Table'), 'Proper subclass');
-my $subclass = Basset::Test::Testing::Basset::DB::Table::applied_restrictions::Subclass->restrict('specialerror');
-Test::More::ok($subclass, "Restricted error");
-Test::More::ok(! scalar $subclass->add_restricted_method('invalidrestriction', 'junkymethod'), "Could not add invalid restriction");
-Test::More::ok($subclass->restricted, "Subclass is restricted");
-
-Test::More::ok($subclass->applied_restrictions, "Subclass has applied restrictions");
-my $restrictions = $subclass->applied_restrictions;
-
-Test::More::ok(ref $restrictions eq 'ARRAY', 'applied restrictions are an array');
-Test::More::is(scalar @$restrictions, 1, "Subclass has 1 restriction");
-Test::More::is($restrictions->[0], 'specialerror', 'Correct restriction in place');
-};
-{#line 4415 restricted
-package Basset::Test::Testing::Basset::DB::Table::restricted::Subclass1;
-our @ISA = qw(Basset::DB::Table);
-
-package Basset::DB::Table;
-
-Test::More::ok(! Basset::DB::Table->restricted, "Basset::DB::Table is not restricted");
-Test::More::ok(! Basset::Test::Testing::Basset::DB::Table::restricted::Subclass1->restricted, "Subclass is not restricted");
-my $subclass = Basset::DB::Table->inline_class;
-Test::More::ok($subclass, "Subclassed Basset::DB::Table");
-my $subclass2 = Basset::Test::Testing::Basset::DB::Table::restricted::Subclass1->inline_class();
-Test::More::ok($subclass2, "Restricted Basset::Test::Testing::Basset::DB::Table::restricted::Subclass1");
-Test::More::ok($subclass->restricted, "Subclass is restricted");
-Test::More::ok($subclass2->restricted, "Subclass is restricted");
-};
-{#line 4479 exceptions
-my $confClass = Basset::DB::Table->pkg_for_type('conf');
-Test::More::ok($confClass, "Got conf");
-
-my $cfg = $confClass->conf;
-Test::More::ok($cfg, "Got configuration");
-
-my $exceptions = $cfg->{"Basset::Object"}->{'exceptions'};
-
-Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0, "disables exceptions");
-Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0, "enables exceptions");
-Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = $exceptions, $exceptions, "reset exceptions");
-};
-{#line 4508 last_exception
-my $o = Basset::DB::Table->new();
-Test::More::ok($o, "Got object");
-
-my $confClass = Basset::DB::Table->pkg_for_type('conf');
-Test::More::ok($confClass, "Got conf");
-
-my $cfg = $confClass->conf;
-Test::More::ok($cfg, "Got configuration");
-
-Test::More::ok($cfg->{"Basset::Object"}->{'exceptions'} = 1, "enables exceptions");
-
-Test::More::ok(scalar Basset::DB::Table->wipe_errors, "Wiped out errors");
-Test::More::ok(! Basset::DB::Table->last_exception, "Last exception is empty");
-eval {
-	Basset::DB::Table->error('test exception', 'test code');
-};
-Test::More::like($@, "/test code/", "Thrown exception matches");
-Test::More::like(Basset::DB::Table->last_exception, qr/test exception/, "Last exception matches");
-Test::More::like($o->last_exception, qr/test exception/, "Object last exception matches");
-Test::More::is($cfg->{"Basset::Object"}->{'exceptions'} = 0, 0,"disables exceptions");
 };

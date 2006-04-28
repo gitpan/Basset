@@ -1,6 +1,6 @@
 package Basset::Machine::State;
 
-#Basset::Machine::State, copyright and (c) 2004 James A Thomason III
+#Basset::Machine::State, copyright and (c) 2004, 2006 James A Thomason III
 #Basset::Machine::State is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -35,10 +35,10 @@ and are entered via the method ->main, which the machine calls when the state is
 
 =cut
 
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 use Basset::Object;
-Basset::Object->inherits(__PACKAGE__, 'object');
+our @ISA = Basset::Object->pkg_for_type('object');
 
 use strict;
 use warnings;

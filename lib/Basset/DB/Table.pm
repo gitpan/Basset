@@ -1,9 +1,9 @@
 package Basset::DB::Table;
 
-#Basset::DB::Table Copyright and (c) 2002, 2003, 2004 James A Thomason III
+#Basset::DB::Table Copyright and (c) 2002, 2003, 2004, 2005, 2006 James A Thomason III
 #Basset::DB::Table is distributed under the terms of the Perl Artistic License.
 
-$VERSION = '1.01';
+our $VERSION = '1.02';
 
 =pod
 
@@ -48,7 +48,7 @@ in order bo be used.
 =cut
 
 use Basset::Object;
-@ISA = qw(Basset::Object);
+our @ISA = Basset::Object->pkg_for_type('object');
 
 use strict;
 use warnings;
@@ -417,7 +417,7 @@ $test->is(scalar(__PACKAGE__->db_read_translation(1)), undef, 'Could not set db_
 
 =cut
 
-__PACKAGE__->add_attr(['db_read_translation', '_translation_accessor']);
+__PACKAGE__->add_attr(['db_read_translation', '_isa_translation_accessor']);
 
 =pod
 
@@ -548,7 +548,7 @@ $test->is(scalar(__PACKAGE__->db_write_translation(1)), undef, 'Could not set db
 
 =cut
 
-__PACKAGE__->add_attr(['db_write_translation', '_translation_accessor']);
+__PACKAGE__->add_attr(['db_write_translation', '_isa_translation_accessor']);
 
 =pod
 
@@ -1113,17 +1113,17 @@ $test->is($o->errcode, 'BDT-13', 'proper error code');
 
 =cut
 
-__PACKAGE__->add_attr(['insert_columns',  '_column_list_accessor']);
-__PACKAGE__->add_attr(['update_columns',  '_column_list_accessor']);
-__PACKAGE__->add_attr(['delete_columns',  '_column_list_accessor']);
-__PACKAGE__->add_attr(['replace_columns', '_column_list_accessor']);
-__PACKAGE__->add_attr(['select_columns',  '_column_list_accessor']);
+__PACKAGE__->add_attr(['insert_columns',  '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['update_columns',  '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['delete_columns',  '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['replace_columns', '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['select_columns',  '_isa_column_list_accessor']);
 
-__PACKAGE__->add_attr(['noninsert_columns',  '_column_list_accessor']);
-__PACKAGE__->add_attr(['nonupdate_columns',  '_column_list_accessor']);
-__PACKAGE__->add_attr(['nondelete_columns',  '_column_list_accessor']);
-__PACKAGE__->add_attr(['nonreplace_columns', '_column_list_accessor']);
-__PACKAGE__->add_attr(['nonselect_columns',  '_column_list_accessor']);
+__PACKAGE__->add_attr(['noninsert_columns',  '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['nonupdate_columns',  '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['nondelete_columns',  '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['nonreplace_columns', '_isa_column_list_accessor']);
+__PACKAGE__->add_attr(['nonselect_columns',  '_isa_column_list_accessor']);
 
 =pod
 
@@ -1135,49 +1135,55 @@ $test->ok("testing is implied", "testing is implied");
 
 =cut
 
-
-sub _column_list_accessor {
-	my $self	= shift;
-	my $prop	= shift;
-
-	my $prefix = $self->system_prefix;
-	(my $propname = $prop) =~ s/^$prefix//;
-
-	if (@_) {
-		foreach my $col (@{$_[0]}) {
-			return $self->error("Cannot add $col for $propname - not a column", "BDT-13")
-				unless $self->is_column($col);
-		}
-
-		$self->$prop(@_);
-	}
-
-	my $vals = $self->$prop() || [];
-
-	my @vals = @$vals ? @$vals : $self->cols;
-
-	#weed out our non-columns, if they were provided.
-	if ($propname !~ /non/) {
-		my $nonprop = $prefix . 'non' . $propname;
-		my $nonvals = {map {$_, 1} @{$self->$nonprop() || []}};
-
-		@vals = grep {! $nonvals->{$_}} @vals;
-	}
-
-	return @vals;
-}
-
-sub _translation_accessor {
-	my $self = shift;
+sub _isa_column_list_accessor {
+	my $pkg = shift;
+	my $attr = shift;
 	my $prop = shift;
 
-	#nuke any cached queries, they can no longer be trusted.
-	$self->_cached_queries({}) if @_;
-	#likewise with the cached bindables
-	$self->_cached_bindables({}) if @_;
+	return sub {
+		my $self	= shift;
+	
+		my $prefix = $self->system_prefix;
+		(my $propname = $prop) =~ s/^$prefix//;
+	
+		if (@_) {
+			foreach my $col (@{$_[0]}) {
+				return $self->error("Cannot add $col for $propname - not a column", "BDT-13")
+					unless $self->is_column($col);
+			}
+	
+			$self->$prop(@_);
+		}
+	
+		my $vals = $self->$prop() || [];
+	
+		my @vals = @$vals ? @$vals : $self->cols;
+	
+		#weed out our non-columns, if they were provided.
+		if ($propname !~ /non/) {
+			my $nonprop = $prefix . 'non' . $propname;
+			my $nonvals = {map {$_, 1} @{$self->$nonprop() || []}};
+	
+			@vals = grep {! $nonvals->{$_}} @vals;
+		}
+	
+		return @vals;
+	}
+}
 
-	return $self->$prop(@_);
-};
+sub _isa_translation_accessor {
+	my $pkg = shift;
+	my $attr = shift;
+	my $prop = shift;
+
+	return sub {
+		my $self = shift;
+		$self->_cached_queries({}) if @_;
+		$self->_cached_bindables({}) if @_;
+		return $self->$prop(@_);
+	};
+}
+
 
 =pod
 
@@ -1210,7 +1216,8 @@ sub init {
 		'_cached_queries'			=> {},
 		'_cached_bindables'			=> {},
 		'attributes_not_to_create'	=> [],
-		'create_attributes'			=> 1,
+		'create_attributes'			=> 0,
+		'last_insert_query'			=> 'SELECT LAST_INSERT_ID()',
 		@_
 	);
 
@@ -4046,7 +4053,7 @@ This should be typically be invoked via the discover flag to the constructor.
 
 sub discover_columns {
 	my $self = shift;
-	my $table = shift;
+	my $table = shift or return $self->error("Cannot discover columns w/o table", "BDT-51");
 
 	my $columns = join(', ', @_ ? @_ : ('*'));
 
@@ -4065,6 +4072,8 @@ sub discover_columns {
 	for (my $idx = 0; $idx < $stmt->{'NUM_OF_FIELDS'}; $idx++) {
 		$definition->{$stmt->{'NAME_lc'}->[$idx]} = $stmt->{'TYPE'}->[$idx];
 	}
+
+	$stmt->finish or return $self->error($stmt->errstr, 'BDT-37');
 
 	return $definition;
 
@@ -5150,7 +5159,8 @@ $test->ok($poclass->can('arbitrary_sql'), 'persistent class can arbitrary_sql');
 sub arbitrary_sql {
 	my $class = shift;
 
-	return $class->pkg_for_type('persistentobject')->arbitrary_sql(@_);
+	my $persistent_class = $class->pkg_for_type('persistentobject');
+	return $persistent_class->arbitrary_sql(@_) || $class->error($persistent_class->errvals);
 }
 
 1;

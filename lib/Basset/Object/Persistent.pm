@@ -1,9 +1,9 @@
 package Basset::Object::Persistent;
 
-#Basset::Object::Persistent Copyright and (c) 2000, 2002, 2003, 2004 James A Thomason III
+#Basset::Object::Persistent Copyright and (c) 2000, 2002, 2003, 2004, 2005, 2006 James A Thomason III
 #Basset::Object::Persistent is distributed under the terms of the Perl Artistic License.
 
-$VERSION = '1.02';
+our $VERSION = '1.03';
 
 =pod
 
@@ -48,7 +48,7 @@ contains a set of columns named the same as object attributes. The attributes ar
 use Scalar::Util qw(weaken isweak);
 
 use Basset::Object;
-Basset::Object->inherits(__PACKAGE__, 'object');
+our @ISA = Basset::Object->pkg_for_type('object'); 
 
 use strict;
 use warnings;
@@ -297,11 +297,6 @@ __PACKAGE__->add_attr('deleted');
 # tables is a class attribute that internally stores the tables associated with this object
 __PACKAGE__->add_trickle_class_attr('tables', []);
 
-# grouptables is a class attribute that stores a list of all grouptables used by this object for grouping purposes. Objects may
-# be grouped together into groups to associate disparate objects together. This class attribute stores information on group tables.
-# This value should be set via the add_grouptable method
-__PACKAGE__->add_trickle_class_attr('grouptables');
-
 =pod
 
 =item arbitrary_selectables
@@ -319,7 +314,7 @@ should expect to return data. A good value for MySQL is: (show|select|desc|set)
 
 =cut
 
-__PACKAGE__->add_class_attr('arbitrary_selectables');
+__PACKAGE__->add_class_attr('arbitrary_selectables', '(show|select|desc|set)');
 
 =pod
 
@@ -385,6 +380,76 @@ __PACKAGE__->add_trickle_class_attr('iterator');
 
 =over
 
+=cut
+
+sub add_primary_attr {
+	my $pkg			= shift;
+	
+	foreach my $record (@_) {
+		my $attribute = ref $record eq 'ARRAY' ? $record->[0] : $record;
+		
+		$pkg->add_attr($record);
+		
+		$pkg->_primary_attributes->{$attribute}++
+			unless $pkg->is_attribute($attribute, 'non_primary');
+	}
+
+}
+
+sub add_non_primary_attr {
+	my $pkg			= shift;
+	
+	foreach my $record (@_) {
+		my $attribute = ref $record eq 'ARRAY' ? $record->[0] : $record;
+		
+		$pkg->add_attr($record);
+		
+		$pkg->_non_primary_attributes->{$attribute}++
+			unless $pkg->is_attribute($attribute, 'primary');
+	}
+	
+}
+
+sub attributes {
+	my $class	= shift->pkg;
+	my $type	= shift;
+	
+	my @attributes = ();
+	
+	if (defined $type && $type eq 'primary') {
+		@attributes = keys %{$class->_primary_attributes};
+	}
+	elsif (defined $type && $type eq 'non_primary') {
+		@attributes = keys %{$class->_non_primary_attributes};	
+	}
+	else {
+		return $class->SUPER::attributes($type, @_);
+	}
+	
+	return [sort grep {! /^_/} @attributes];
+}
+
+
+sub is_attribute {
+	my $class		= shift->pkg;
+	my $attribute	= shift;
+	my $type		= shift || 'instance';
+
+	if (defined $type) {
+		if ($type eq 'primary') {
+			return $class->_primary_attributes->{$attribute};
+		}
+		elsif ($type eq 'non_primary') {
+			return $class->_non_primary_attributes->{$attribute};
+		}
+	}
+	
+	return $class->SUPER::is_attribute($attribute, $type, @_);
+}
+
+__PACKAGE__->add_trickle_class_attr('_primary_attributes', {});
+__PACKAGE__->add_trickle_class_attr('_non_primary_attributes', {});
+
 #=item init
 #
 #Nothing you need to worry about, Basset::Object::Persistent just intercepts init and makes sure that loaded and committed are specified first,
@@ -395,26 +460,7 @@ __PACKAGE__->add_trickle_class_attr('iterator');
 
 #=pod
 
-=begin btest(init)
-
-my $o = __PACKAGE__->new();
-$test->ok($o, "got object for init");
-
-$test->is($o->loading, 0, "loading is 0");
-$test->is($o->loaded, 0, "loaded is 0");
-$test->is($o->committing, 0, "committing is 0");
-$test->is($o->committed, 0, "committed is 0");
-$test->is($o->deleting, 0, "deleting is 0");
-$test->is($o->deleted, 0, "deleted is 0");
-$test->is(ref($o->instantiated_relationships), 'HASH', 'instantiated_relationships is hashref');
-$test->is($o->tied_to_parent, 0, 'tied_to_parent is 0');
-$test->is($o->should_be_committed, 0, 'should_be_committed is 0');
-$test->is($o->should_be_deleted, 0, 'should_be_committed is 0');
-$test->is(ref($o->_deleted_relationships), 'ARRAY', '_deleted_relationships is arrayref');
-
-=end btest(init)
-
-=cut
+#=cut
 
 sub init {
 	my $self = shift;
@@ -436,6 +482,29 @@ sub init {
 	);
 
 };
+
+=pod
+
+=begin btest(init)
+
+my $o = __PACKAGE__->new();
+$test->ok($o, "got object for init");
+
+$test->is($o->loading, 0, "loading is 0");
+$test->is($o->loaded, 0, "loaded is 0");
+$test->is($o->committing, 0, "committing is 0");
+$test->is($o->committed, 0, "committed is 0");
+$test->is($o->deleting, 0, "deleting is 0");
+$test->is($o->deleted, 0, "deleted is 0");
+$test->is(ref($o->instantiated_relationships), 'HASH', 'instantiated_relationships is hashref');
+$test->is($o->tied_to_parent, 0, 'tied_to_parent is 0');
+$test->is($o->should_be_committed, 0, 'should_be_committed is 0');
+$test->is($o->should_be_deleted, 0, 'should_be_committed is 0');
+$test->is(ref($o->_deleted_relationships), 'ARRAY', '_deleted_relationships is arrayref');
+
+=end btest(init)
+
+=cut
 
 =pod
 
@@ -468,90 +537,47 @@ into the database, it's valid.
 
 =cut
 
-sub _keyed_accessor {
-	my $self	= shift;
+sub _isa_keyed_accessor {
+	my $pkg		= shift;
+	my $attr	= shift;
 	my $prop	= shift;
 	my $class	= shift;
-	if (@_) {
-		my $val = shift;
-		my $valid = shift || 0;
-		if (defined $val && ! $valid && ! $self->loading) {
-			$self->load_pkg($class) or return;
-			unless ( $class->exists($val) ) {
-				return $self->error("Cannot store value $val - object does not exist for $class", "BOP-48");
+	
+	return sub {
+		my $self = shift;
+		if (@_) {
+			my $val		= shift;
+			my $valid	= shift || 0;
+			if (defined $val && ! $valid && ! $self->loading) {
+				$self->load_pkg($class) or return;
+				unless ($class->exists($val) ) {
+					return $self->error("Cannot store value $val - object does not exist for $class", "BOP-48");
+				}
 			}
-		};
-		return $self->$prop($val);
-	} else {
-		return $self->$prop();
+			return $self->$prop($val);
+		}
+		else {
+			return $self->$prop();
+		}			
 	}
 }
 
-=pod
-
-=item add_wrapper
-
-Basset::Object::Persistent adds two new wrapper types - on_load and on_commit.
-
-For example,
-
- Some::Class->add_wrapper('on_commit', 'username', sub {
-	my $self = shift;
-	my $ptr = shift;
-	my $rc = shift;
-	return lc $rc;
- });
-
-This will cause the username method to be shortcircuited only when the object is committed. In its place,
-it returns the username in lowercase. It is equivalent to the following:
-
- # we need a wrapper here, since conditionals get arguments and we don't want to stomp on the ->committing value.
- sub is_committing { return shift->committing };
-
- Some::Class->add_wrapper('after', 'username', sub { return lc shift->username }, 'is_committing');
-
-That is to say, it creates a new after wrapper to change the username, but executes a conditional to only execute
-the wrapper if the object is being committed.
-
-Using the on_commit wrapper type is preferrable due to speed considerations. Using the conditional wrapper as
-an after wrapper will cause the conditional to constantly be evaluated. Since most of the time, when accessing
-username you are not committing, the constant checking is wasteful. The on_commit wrapper is hence more efficient.
-
-It accomplishes this by creating a new method called "on_commit_username" (on_commit_ + (name of method)) that is
-just an alias for username and it then calls that upon commit.
-
-on_load works similiarly. Note that on_load receives 5 arguments - the class, the pointer to the original attribute,
-the return code from the original attribute, the name of the method being loaded, and the value being loaded. on_commit
-only receives the object, the pointer, and the return code.
-
-=cut
-
-sub add_wrapper {
-	my $class = shift;
-	my $type		= shift or return $class->error("Cannot add wrapper w/o type", "BO-31");
-	my $attribute	= shift or return $class->error("Cannot add wrapper w/o attribute", "BO-32");
-
-	if ($type =~ /^on_(load|commit)$/) {
-
-		my $action = $1;
-
-		$class->create_on_star_methods($attribute) or return;
-
-		$type = 'after';
-		$attribute = "on_${action}_$attribute";
+sub _isa_committing_accessor {
+	my $pkg = shift;
+	my $attr = shift;
+	my $prop = shift;
+	my $interceptor = shift or return $pkg->error("Cannot make committing accessor w/o interceptor", "XXX");
+	
+	return sub {
+		my $self = shift;
+		if ($self->committing) {
+			return $self->$interceptor($prop, @_);
+		}
+		else {
+			return $self->$prop(@_);
+		}
 	}
-
-	return $class->SUPER::add_wrapper($type, $attribute, @_);
-
 }
-
-=pod
-
-=begin btest(add_wrapper)
-
-=end btest(add_wrapper)
-
-=cut
 
 =pod
 
@@ -631,31 +657,16 @@ sub auto_create_attributes {
 
 };
 
-sub create_on_star_methods {
-	my $class = shift;
-	my $attribute = shift or return $class->error("Cannot create methods w/o attribute", "BOP-92");
-
-	no strict 'refs';
-
-	*{$class . "::on_commit_$attribute"} = sub {
-		return shift->$attribute(@_);
-	} unless $class->can("on_commit_$attribute");
-
-	*{$class . "::on_load_$attribute"} = sub {
-		return $_[2];	# @_ = ($class, $attribute, $value)
-	} unless $class->can("on_load_$attribute");
-
-	return 1;
-}
-
 sub add_tables {
 	my $class = shift;
 
 	return $class->error("Cannot add table w/o tables", "BOP-85") unless @_;
 
 	my @tables = @{$class->tables};
+	my %existing_table = map {$_->name, 1} @tables;
 
 	while (my $table = shift @_) {
+		next if $existing_table{$table->name};
 		push @tables, $table;
 
 		if ($table->create_attributes) {
@@ -670,20 +681,46 @@ sub add_tables {
 			}
 		}	#end if create_attributes
 
-		#but we always need to make the on_load and on_commit methods
-		my @attributes = $table->alias_column($table->cols);
-		foreach my $attribute (@attributes) {
-
-			$class->create_on_star_methods($attribute) or return;
-
-		}
-
 	} #end while tables
 
 	$class->tables(\@tables);
 
 	return 1;
 }
+
+#####
+#
+# XXX THIS IS EXTREMELY TEMPORARY AND A PROTOTYPE
+#
+# If you're looking in here, you shouldn't be. For the record, I'm debating a major overhaul of
+# Basset's concept of "persistence" and abstracting it royally out the ass into Basset::Storage.
+# But it's a huge undertaking, and I haven't figured out quite what needs to be done, how to do it,
+# or if I want to. But enjoy pondering the magical little method you're spying on here. It may
+# come to naught.
+#
+#####
+
+sub add_storage {
+	my $class = shift;
+	
+	return $class->error("Cannot add storage w/o storage", "XXX") unless @_;
+	
+	while (my $storage = shift @_) {
+
+		my $table = $class->factory(
+			'type'					=> 'table',
+			'primary_column'		=> $class->attributes('primary'),
+			'non_primary_columns'	=> $class->attributes('non_primary'),
+			%$storage
+		) or return;
+
+		$class->add_tables($table);
+	}
+	
+	return 1;
+}
+
+# XXX END TEMPORARY HACK
 
 =pod
 
@@ -970,7 +1007,8 @@ has_many call. Alternatively, you can pass in a set of clauses to restrict the o
  	'where' => 'status_id = 1'
  });
 
-Will instantiate the 'foo' attribute only with the objects that have a status_id of 1, anything else will simply not be loaded.
+Will instantiate the 'foo' attribute only with the objects that have a status_id of 1, anything else will simply not be loaded. A useful
+clauses flag to pass is "temporary" - this will instantiate the relationship according to the clauses, but not populate the attribute.
 
 Note that you should only instantiate an attribute that is defined has having an instantiating parameter of 'manual' (as opposed 
 to 'lazy' ) and this is due to encapsulation reasons.
@@ -1004,7 +1042,7 @@ sub instantiate {
 	my $clauses					= shift || {};
 	my @values					= @_;
 
-	if ($self->is_instantiated($prop)) {
+	if ($self->is_instantiated($prop) && ! $clauses->{'temporary'}) {
 		$self->notify("warnings", "object already instantiated");
 	};
 
@@ -1012,6 +1050,10 @@ sub instantiate {
 
 	my $relationship_data = $relationships->{$prop}
 		or return $self->error("Cannot instantiate $prop : not relationship", "BOP-73");
+
+	my $c = $relationship_data->{'clauses'};
+
+	$clauses = {%$c, %$clauses};
 
 	my $table = $relationship_data->{'table'};
 	$table = $table->[0] if ref $table eq 'ARRAY';
@@ -1048,6 +1090,10 @@ sub instantiate {
 	if ($relationship_data->{'singleton'}) {
 		$instantiated = $instantiated->[0];
 	}
+
+	if ($clauses->{'temporary'}) {
+		return $instantiated;
+	};
 
 	$self->$prop($instantiated);
 
@@ -1137,44 +1183,51 @@ until the attribute is accessed. _instantiating_accessor internally handles all 
 
 =cut
 
+sub _isa_instantiating_accessor {
+	my $pkg						= shift;
+	my $attr					= shift;
+	my $prop					= shift;
+
+	return sub {
+		my $self = shift;
+		
+		#got me. Perl 5.6 seems to require I yank this out, since it's a tied hashref.
+		my $h = $self->relationships->{$attr};
+			
+		#upon mutation, we'll consider that as good as an instantiation.
+		if (@_) {
+			$self->$prop(shift);
+	
+			$self->instantiated_relationships->{$attr}++;
+	
+			return $self->$prop();
+		}
+		#otherwise, instantiate if we're a lazy load
+		elsif ($h->{'instantiating'} eq 'lazy') {
+			$self->instantiate($attr) unless $self->is_instantiated($attr);
+			return $self->$prop();
+		}
+		#otherwise, if it's instantiated, we return it.
+		elsif ($self->is_instantiated($attr)) {
+			return $self->$prop();
+		}
+		#finally, we can't do anything, so we bomb out
+		else {
+			return $self->error("Cannot access $attr : not instantiated", "BOP-93");
+		}
+		
+		
+	}
+}
+
 =pod
 
-=begin btest(_instantiating_accessor)
+=begin btest(_isa_instantiating_accessor)
 
-=end btest(_instantiating_accessor)
+=end btest(_isa_instantiating_accessor)
 
 =cut
 
-sub _instantiating_accessor {
-	my $self = shift;
-	my $prop = shift;
-	my $instantiating_method = shift;
-
-	#got me. Perl 5.6 seems to require I yank this out, since it's a tied hashref.
-	my $h = $self->relationships->{$instantiating_method};
-
-	#upon mutation, we'll consider that as good as an instantiation.
-	if (@_) {
-		$self->$prop(shift);
-
-		$self->instantiated_relationships->{$instantiating_method}++;
-
-		return $self->$prop();
-	}
-	#otherwise, instantiate if we're a lazy load
-	elsif ($h->{'instantiating'} eq 'lazy') {
-		$self->instantiate($instantiating_method) unless $self->is_instantiated($instantiating_method);
-		return $self->$prop();
-	}
-	#otherwise, if it's instantiated, we return it.
-	elsif ($self->is_instantiated($instantiating_method)) {
-		return $self->$prop();
-	}
-	#finally, we can't do anything, so we bomb out
-	else {
-		return $self->error("Cannot access $instantiating_method : not instantiated", "BOP-93");
-	}
-}
 
 =pod
 
@@ -1353,7 +1406,7 @@ sub has_many {
 	my $attribute		= shift or return $class->error("Cannot have many w/o attribute", "BOP-77");
 	my $fclass			= shift or return $class->error("Cannot have many w/o class", "BOP-78");
 
-	my $init			= shift;
+	my $init			= shift || {};
 
 	my $table			= $init->{'table'} || $class->primary_table;
 
@@ -1382,7 +1435,7 @@ sub has_many {
 		}
 	}
 
-	$class->add_attr([$attribute, '_instantiating_accessor'], $attribute);
+	$class->add_attr([$attribute, '_isa_instantiating_accessor']);
 
 	$class->relationships->{$attribute} = {
 		'class'				=> $fclass,
@@ -1395,7 +1448,7 @@ sub has_many {
 	};
 
 	unless ($init->{'singleton'}) {
-		$class->create_add_to_method($attribute) or return;
+		$class->create_isa_to_method($attribute) or return;
 	};
 
 	return 1;
@@ -1403,7 +1456,7 @@ sub has_many {
 
 =pod
 
-=item create_add_to_method
+=item create_isa_to_method
 
 Mainly used internally when setting up has_many relationships. When you create a has_many relationship,
 you automatically get an add_to* method.
@@ -1427,12 +1480,12 @@ Is equivalent to:
 
 =cut
 
-sub create_add_to_method {
+sub create_isa_to_method {
 	my $self = shift;
 	my $attribute = shift or return $self->error("Cannot create add_to_* method w/o attribute", "BOP-87");
 
 	my $relationship_data = $self->relationships->{$attribute}
-		or return $self->error("Cannot create_add_to_method for $attribute : not relationship", "BOP-88");
+		or return $self->error("Cannot create_isa_to_method for $attribute : not relationship", "BOP-88");
 
 	no strict 'refs';
 
@@ -1486,9 +1539,9 @@ sub create_add_to_method {
 
 =pod
 
-=begin btest(create_add_to_method)
+=begin btest(create_isa_to_method)
 
-=end btest(create_add_to_method)
+=end btest(create_isa_to_method)
 
 =cut
 
@@ -1802,10 +1855,14 @@ Returns the single, unique primary identifier of the object.
 
  my $id = $obj->primary_identifier;
 
-If an object as composite keys, this method will return an error by default. You can pass the 'want composite' flag to get back
+If an object has composite keys, this method will return an error by default. You can pass the 'composite' flag to get back
 an arrayref of all primary keys.
 
- my $idref = $obj->primary_identifier('all');
+ my $idref = $obj->primary_identifier('composite');
+
+If you simply want a string identifier to identify the object, pass in the "string" flag.
+
+ my $string = $obj->primary_identifier('string');
 
 =cut
 
@@ -1819,19 +1876,35 @@ an arrayref of all primary keys.
 
 sub primary_identifier {
 	my $self = shift;
-	my $want_array_ref = shift || 0;
+	my $flag = shift || 0;
 
-	my $table = $self->primary_table;
+	my $primary_table = $self->primary_table;
 
-	my @primary_cols = map {$self->$_()} $table->alias_column($table->primary_cols);
+	my @primary_cols = map {$self->$_()} $primary_table->alias_column($primary_table->primary_cols);
 
-	if (@primary_cols > 1 && ! $want_array_ref) {
-		return $self->error("Object has no unique identifier - composite key (@primary_cols)", "BOP-80");
-	} elsif ($self->deleted) {
+	if ($self->deleted) {
 		return;
-	} else {
-		return $want_array_ref ? \@primary_cols : $primary_cols[0];
-	};
+	}
+	elsif ($flag eq 'composite') {
+		return \@primary_cols;
+	}
+	elsif ($flag eq 'string') {
+		my $tables = $self->tables;
+		my @column_sets = ();
+		foreach my $table (@$tables) {
+			push @column_sets, join(';', $table->name, map {$self->$_()} $table->alias_column($table->primary_cols));
+		}
+		return join(',',
+			$self->pkg,
+			@column_sets,
+		);
+	}
+	elsif (@primary_cols > 1) {
+		return $self->error("Object has no unique identifier - composite key (@primary_cols)", "BOP-80");
+	}
+	else {
+		return $primary_cols[0];
+	}
 
 }
 
@@ -1950,7 +2023,7 @@ sub commit {
 				}
 			) or return $self->fatalerror($table->errvals);
 
-			my @values = map {my $meth = "on_commit_$_"; $self->$meth()} $table->alias_column($table->update_bindables) or return $self->fatalerror($self->errvals);
+			my @values = map {$self->$_()} $table->alias_column($table->update_bindables) or return $self->fatalerror($self->errvals);
 
 			$self->arbitrary_sql(
 				'query' => $query,
@@ -1965,7 +2038,7 @@ sub commit {
 
 			my $insert_query = $table->insert_query or return $self->fatalerror($table->errvals);
 
-			my @values = map {my $meth = "on_commit_$_"; $self->$meth()} $table->alias_column($table->insert_bindables) or return $self->fatalerror($self->errvals);
+			my @values = map {$self->$_()} $table->alias_column($table->insert_bindables) or return $self->fatalerror($self->errvals);
 
 			$self->arbitrary_sql(
 				'query' => $insert_query,
@@ -2004,7 +2077,7 @@ sub commit {
 	#and it's in the database
 	$self->in_db(1);
 
-	my $primary_identifier = join(',', $self->pkg, map {defined $_ ? $_ : ''} @{$self->primary_identifier('all')});
+	my $primary_identifier = $self->primary_identifier('string');
 	my $load_cache = $self->central_load_cache;
 	unless (defined $load_cache->{$primary_identifier}) {
 		$load_cache->{$primary_identifier} = $self;
@@ -2435,6 +2508,9 @@ A list of all valid constraints is provided in the Basset::DB::Table object.
 Note that load_all is faster than loading objects individually, since it combines its SQL to minimize the number of queries.
 However, all queries dones internally to auto-instantiated relationships will still be performed one at a time, and not in aggregate.
 
+B<NOTE> - with load_all, you are B<required> to pass in actually column names, not aliases attribute names. You would pass in
+aliased attribute names to load_where.
+
 Returns an empty arrayref if no objects found.
 
 The loader can also accept various 'flag' attributes passed in the constraints hash. The flags will not be passed onto the SQL generator.
@@ -2492,6 +2568,26 @@ relationship.
 
 Directly using this as a loader flag is dubious at best, it is most useful with relationships.
 
+=item force_arrayref
+
+There are several flags that will return the resutls of load_all in a different format (key or singleton, for example),
+but this makes subclassing difficult. You can't easily override the load_all method, since you don't know what SUPER's implementation will return
+to you. So you can pass the force_arrayref flag. That will return a list with the actual original arrayref first, and the value to return to the user second.
+Along these lines:
+
+ package Some::Subclass;
+ 
+ sub load_all {
+ 	#not quite right...this wipes out the existing clauses hashref.
+ 	my ($values, $return) = shift->SUPER::load_all({'force_arrayref' => 1}, @_);
+ 	
+ 	foreach my $value (@$values) {
+ 		#do interesting thing;
+ 	}
+ 	
+ 	return $return;
+ }
+
 =back
 
 =cut
@@ -2514,7 +2610,7 @@ sub load_all {
 		$clauses	= shift;
 		@args		= @_;
 	};
-	#my $table	= $class->primary_table or return $class->error("Cannot load with no table", "BOP-01");
+
 	my $tables = $class->tables;	
 
 	my $omit_tables = undef;
@@ -2526,8 +2622,6 @@ sub load_all {
 	}
 
 	return $class->error("Cannot load with no table", "BOP-01") unless @$tables;
-
-	my $driver	= $class->driver or return;
 
 	my $iterated = $clauses->{'iterator'} || 0;
 	delete $clauses->{'iterator'};
@@ -2564,13 +2658,12 @@ sub load_all {
 
 	while (my $stuff = $stmt->fetchrow_hashref('NAME_lc')){
 
-		$stuff = {map {my $meth = "on_load_$_"; $_, $class->$meth($_, $stuff->{$_})} keys %$stuff};
-
 		my $obj = $class->new('loading' => 1, 'in_db' => 1, %$stuff, %{$clauses->{'constructor'}}, 'loaded' => 1)
 			or return $class->error("Cannot create object : " . $class->error, "BOP-06");
 		$obj->loading(0);
 
-		my $primary_identifier = join(',', $obj->pkg, map {defined $_ ? $_ : ''} @{$obj->primary_identifier('all')});
+		my $primary_identifier = $obj->primary_identifier('string');
+		
 		if (defined $load_cache->{$primary_identifier}) {
 			$obj = $load_cache->{$primary_identifier};
 		}
@@ -2581,6 +2674,9 @@ sub load_all {
 
 			$obj->setup() or return $class->error("Setup failed in object : " . $obj->error, $obj->errcode || "BOP-47");
 		}
+
+		#no matter what, we nuke our instantiated relationships, they can no longer be trusted.
+		$obj->instantiated_relationships({});
 
 		if (my $transform = $clauses->{'transform'}) {
 			my $transformed = $obj->$transform();
@@ -2605,16 +2701,18 @@ sub load_all {
 	};
 
 	if ($clauses->{'singleton'}) {
-		my $return = $objs[0];
-		return $return || $class->error("Cannot load single object - no objects returned", "BOP-84");
+		my $return = $objs[0] or return $class->error("Cannot load single object - no objects returned", "BOP-84");
+		return $clauses->{'force_arrayref'} ? (\@objs, $return) : $return;
 	}
 	else {
+		my $return;
 		if (my $key = $clauses->{'key'}) {
 			my %objs = map {$_->$key(), $_} @objs;
-			return \%objs;
+			$return = \%objs;
 		} else {
-			return \@objs;
+			$return = \@objs;
 		}
+		return $clauses->{'force_arrayref'} ? (\@objs, $return) : $return;
 	}
 
 };
@@ -2738,35 +2836,6 @@ sub delete {
 
 };
 
-=pod
-
-=item load_by_user
-
-This is a convenience method for objects that frequently do a load_all for a particular user.
-
-It's just a wrapper to:
-
- $class->load_all({"where" => "user = ?"}, $user_id);
-
-=cut
-
-=pod
-
-=begin btest(load_by_user)
-
-=end btest(load_by_user)
-
-=cut
-
-sub load_by_user {
-	my $self	= shift;
-	my $user	= shift or return $self->error("Cannot load all with no user!", "BOP-20");
-
-	return $self->error("Cannot load by user, object does not have user", "BOP-21")
-		unless $self->can('user');
-
-	return $self->load_all({"where" => "user = ?"}, $user);
-};
 
 =pod
 
@@ -2842,6 +2911,11 @@ sub load_where {
 
 	my $additional_clauses = {};
 
+	if (ref $clauses[0] eq 'HASH') {
+		$class->notify('warnings', 'load_where with a hashref argument is deprecated. Please load with an array instead.');
+		$clauses[0] = [%{$clauses[0]}];
+	};
+
 	if (ref $clauses[0] eq 'ARRAY') {
 		$additional_clauses = @clauses == 2 ? pop @clauses : {};	#last one is additional clauses
 		@clauses = @{$clauses[0]};
@@ -2875,7 +2949,14 @@ convenience method. Simply wrappers a load_where call while passing the singleto
 =cut
 
 sub load_one_where {
-	return shift->load_where(\@_, {'singleton' => 1});
+	my $class = shift;
+	if (ref $_[0] && ref $_[1] eq 'HASH') {
+		$_[1]->{'singleton'} = 1;
+		return $class->load_where(@_);
+	}
+	else {
+		return $class->load_where(\@_, {'singleton' => 1});
+	};
 }
 
 =pod
@@ -2992,9 +3073,7 @@ sub arbitrary_sql {
 		$selecting_query = 1;
 	}
 
-	if ($selecting_query) {
-		$self->begin() or return;
-	}
+	$self->begin() or return;
 
 	my $errormethod = $selecting_query ? 'error' : 'fatalerror';
 
@@ -3031,11 +3110,9 @@ sub arbitrary_sql {
 
 	$stmt->execute() or return $self->$errormethod($stmt->errstr, "BOP-04");
 
-	if ($selecting_query) {
-		$self->end() or return;
-	}
+	$self->end() or return;
 
-	return $stmt if $init{'iterator'} && $selecting_query;
+	return $stmt if $init{'iterator'};# && $selecting_query;
 
 	if ($selecting_query){
 
@@ -3104,7 +3181,8 @@ sub driver {
 	if (@_) {
 		return $self->_driver(shift);
 	} elsif (my $driver = $self->_driver) {
-		if ($ENV{'MOD_PERL'} && ! $driver->ping) {
+		#if ($ENV{'MOD_PERL'} && ! $driver->ping) {
+		if (! $driver->ping) {
 			if ($driver->stack) {
 				$self->notify("warnings", "Silently disconnecting stale driver with transaction stack");
 			}
@@ -3112,7 +3190,7 @@ sub driver {
 		};
 		return $driver;
 	} else {
-		my $driver = $self->factory('type' => 'driver', @_) or return;
+		my $driver = $self->factory('type' => 'driver') or return;
 		return $self->_driver($driver);
 	}
 };
@@ -3373,6 +3451,10 @@ or load in from an object or something.
 
 =cut
 
+sub setup {
+	return shift;
+};
+
 =pod
 
 =begin btest(setup)
@@ -3380,10 +3462,6 @@ or load in from an object or something.
 =end btest(setup)
 
 =cut
-
-sub setup {
-	return shift;
-};
 
 =pod
 
@@ -3395,6 +3473,10 @@ an object immediately before it's committed to the database.
 
 =cut
 
+sub cleanup {
+	return shift;
+};
+
 =pod
 
 =begin btest(cleanup)
@@ -3403,190 +3485,10 @@ an object immediately before it's committed to the database.
 
 =cut
 
-sub cleanup {
-	return shift;
-};
-
 =pod
 
 =back
 
 =cut
-
-
-#ALMOST DEPRECATED
-
-=pod
-
-=over
-
-=item add_grouptable
-
-This is a wrapper around Basset::Group's (or whichever group class you're using) subclass method.
-
-Presently the only limitation is that a given object may belong to an arbitrary (but fixed) number 
-of groups, but not an unlimited amount, the number must be predefined. This will change in the future.
-
-You'll need to hand in the attribute name, table name, and any improvements to the stock definition.
-
- Some::Class->add_grouptable(
- 	'attribute' => 'category',
- 	'table' => 'some_class_category',
- 	'improvement' => {
- 		#improvements
- 	}
- );
-
-Where tablename is the name of the group table, and attribute is the object attribute containing
-the id of the group. So, for our user and company example, it would be:
-
- Some::User->add_grouptable(
- 	'attribute' => 'company',
- 	'table'		=> 'company_names'
- );
-
-Assuming that there is a table named "company_names" in the system and that the Some::User 
-class has an attribute called "company" within which to store the company information.
-
-If you wish to group by multiple things, simply add multiple group tables.
-
- Some::User->add_grouptable('attribute' => 'employee_type', 'table' => 'employment_type');
- Some::User->add_grouptable('attribute' => 'tax_bracket', 'table' => 'tax_bracket');
-
-Naturally, you will need the appropriate attributes and tables defined.
-
-Additionally, if desired, you may improve the group definition:
-
- Some::User->add_grouptable(
- 	'attribute'		=> 'employee_type',
- 	'table'			=> 'employment_type',
- 	'improvement'	=> {
- 		'company' => 'SQL_INTEGER'
- 	}
- );
-
-Will assume that the grouptable has an additional column, 'company', which is used for further
-isolation of a given group. Allows you to associate particular employee_types with a particular
-company, in this case. Note that this is NOT designed to be used as subcategorization, it's used
-for refinement as to exactly who owns a group. You can make a subgroup by specifying the 'super'
-attribute of the group.
-
-B<See Basset::Group for more info.>
-
-=cut
-
-sub add_grouptable {
-	my $class		= shift;
-
-	my $super_groupclass = $class->pkg_for_type('group') or return;
-
-	return $super_groupclass->subclass(
-		'class' => $class,
-		@_
-	) or return $class->error($super_groupclass->errvals);
-};
-
-=pod
-
-=item add_group
-
-This is a wrapper around getting the proper Basset::Group subclass, and then calling B<create> for
-the new object.
-
-B<See Basset::Group for more info.>
-
-=cut
-
-sub add_group {
-	my $class	= shift;
-
-	my %init	= @_;
-
-	my $super_groupclass = $class->pkg_for_type('group') or return;
-	my $groupclass = $super_groupclass->group_for_class($class, $init{'attribute'})
-		or return $class->error($super_groupclass->errvals);
-
-	return $groupclass->create(
-		%init
-	) || $class->error($groupclass->errvals);
-
-};
-
-=pod
-
-=item load_group
-
-This is a wrapper around getting the proper Basset::Group subclass, and then loading the ID you want.
-
-B<See Basset::Group for more info.>
-
-=cut
-
-sub load_group {
-	my $class	= shift;
-
-	my $attribute = shift or return $class->error("Cannot load group w/o attribute", "BOP-57");
-	my $id = shift or return $class->error("Cannot load group w/o id", "BOP-58");
-
-
-	my $super_groupclass = $class->pkg_for_type('group') or return;
-	my $groupclass = $super_groupclass->group_for_class($class, $attribute)
-		or return $class->error($super_groupclass->errvals);
-
-	return $groupclass->load(
-		$id
-	) || $class->error($groupclass->errvals);
-
-};
-
-=pod
-
-=item load_all_groups_by_name
-
-This is a wrapper around getting the proper Basset::Group subclass, and then loading the group you want
-by its name.
-
-B<See Basset::Group for more info.>
-
-=cut
-
-sub load_all_groups_by_name {
-	my $class	= shift;
-
-	my $attribute = shift or return $class->error("Cannot load group w/o attribute", "BOP-59");
-	my $name = shift or return $class->error("Cannot load group w/o name", "BOP-60");
-
-	my $super_groupclass = $class->pkg_for_type('group') or return;
-	my $groupclass = $super_groupclass->group_for_class($class, $attribute)
-		or return $class->error($super_groupclass->errvals);
-
-	return $groupclass->load_by_name(
-		$name
-	) || $class->error($groupclass->errvals);
-
-};
-
-=pod
-
-=item groupclass
-
-This is a wrapper around getting the proper Basset::Group subclass, and then loading the ID you want.
-
-B<See Basset::Group for more info.>
-
-=cut
-
-sub groupclass {
-	my $class	= shift;
-	my $attribute = shift or return $class->error("Cannot get group class w/o attribute", "BOP-61");
-
-	my $super_groupclass = $class->pkg_for_type('group') or return;
-	my $groupclass = $super_groupclass->group_for_class($class, $attribute)
-		or return $class->error($super_groupclass->errvals);
-
-	return $groupclass;
-
-};
-
 
 1;

@@ -1,6 +1,6 @@
 package Basset::NotificationCenter;
 
-#Basset::NotificationCenter, copyright and (c) 2004, 2005 James A Thomason III
+#Basset::NotificationCenter, copyright and (c) 2004, 2005, 2006 James A Thomason III
 #Basset::NotificationCenter is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -60,13 +60,12 @@ You will B<need> to put a types entry into your conf file for
 
 =cut
 
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 use Scalar::Util qw(weaken isweak);
 
 use Basset::Object;
-Basset::Object->inherits(__PACKAGE__, 'object');
-#@ISA = qw(Basset::Object);
+our @ISA = Basset::Object->pkg_for_type('object');
 
 use strict;
 use warnings;

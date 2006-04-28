@@ -1,6 +1,6 @@
 package Basset::Logger;
 
-#Basset::Logger, copyright and (c) 2004 James A Thomason III
+#Basset::Logger, copyright and (c) 2004, 2006 James A Thomason III
 #Basset::Logger is distributed under the terms of the Perl Artistic License.
 
 =pod
@@ -35,10 +35,10 @@ You will B<need> to put a types entry into your conf file for
 =cut
 
 
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 use Basset::Object;
-@ISA = qw(Basset::Object);
+our @ISA = Basset::Object->pkg_for_type('object');
 
 use strict;
 use warnings;
@@ -59,7 +59,7 @@ The place you log to. Either a string (which will be opened in append mode) or a
 
 =cut
 
-__PACKAGE__->add_attr(['handle', '_file_accessor']);
+__PACKAGE__->add_attr(['handle', '_isa_file_accessor']);
 
 =pod
 
@@ -204,32 +204,37 @@ $test->is($o->stamped, 1, 'stamped is 1');
 # path to a file or a globref containing an already openned file handle. It will open up path/to/file strings and 
 # create an internal filehandle. it also makes sure that all filehandles are piping hot.
 
-sub _file_accessor {
-	my $self	= shift;
-	my $prop	= shift;
-	my $file	= shift;
-
-	if (defined $file){
-		if (! ref $file) {
-			my $handle = $self->gen_handle();
-			open ($handle, ">>" . $file)
-				or return $self->error("Could not open file $file : $!", "BL-01");
-			select((select($handle), $| = 1)[0]); 		#Make sure the file is piping hot!
-			$self->closed(0);
-			return $self->$prop($handle);
-		}
-		elsif (ref ($file) eq 'GLOB') {
-			select((select($file), $| = 1)[0]); 		#Make sure the file is piping hot!
-			$self->closed(0);
-			return $self->$prop($file);
+sub _isa_file_accessor {
+	my $pkg = shift;
+	my $attr = shift;
+	my $prop = shift;
+	
+	return sub  {
+		my $self	= shift;
+		my $file	= shift;
+	
+		if (defined $file){
+			if (! ref $file) {
+				my $handle = $self->gen_handle();
+				open ($handle, ">>" . $file)
+					or return $self->error("Could not open file $file : $!", "BL-01");
+				select((select($handle), $| = 1)[0]); 		#Make sure the file is piping hot!
+				$self->closed(0);
+				return $self->$prop($handle);
+			}
+			elsif (ref ($file) eq 'GLOB') {
+				select((select($file), $| = 1)[0]); 		#Make sure the file is piping hot!
+				$self->closed(0);
+				return $self->$prop($file);
+			}
+			else {
+				return $self->error("File error. I don't know what a $file is", "BL-03");
+			};
 		}
 		else {
-			return $self->error("File error. I don't know what a $file is", "BL-03");
+			return $self->$prop();
 		};
 	}
-	else {
-		return $self->$prop();
-	};
 
 };
 

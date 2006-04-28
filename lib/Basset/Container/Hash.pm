@@ -1,11 +1,13 @@
 package Basset::Container::Hash;
 
-#Basset::Container::Hash, copyright and (c) 2005 James A Thomason III
+#Basset::Container::Hash, copyright and (c) 2005, 2006 James A Thomason III
 #Basset::Container::Hash is distributed under the terms of the Perl Artistic License.
 
-$VERSION = '1.00';
+our $VERSION = '1.00';
 
 =pod
+
+=head1 Basset::Container::Hash
 
 Basset::Container::Hash implements a layered hash. The easiest way to explain is with an example:
 
@@ -113,8 +115,16 @@ sub FIRSTKEY {
 	my $c = keys %$internal;
 	
 	my ($k, $v) = each %$internal;
-	
+
+	unless (defined $k) {
+		if (my $parent = $self->[$parent]) {
+			$self->[$gotoparent] = 1;
+			($k, $v) = each %$parent;
+		}
+	}
+
 	return $k;
+		
 }
 
 sub NEXTKEY {
@@ -153,3 +163,48 @@ sub SCALAR {
 }
 
 1;
+
+=pod
+
+=begin btest(Basset::Container::Hash)
+
+my %x = ('a' => 'b');
+
+tie my %y, 'Basset::Container::Hash', \%x;	#<- %x is the parent of 'y'.
+
+$y{'a'} = 'c';
+$y{'b'} = 'd';
+
+$test->is($x{'a'}, 'b', '$x{a} = b');
+$test->is($y{'a'}, 'c', '$y{a} = c');
+$test->is($y{'b'}, 'd', '$y{b} = d');
+$test->is($x{'b'}, undef, '$x{b} is undef');
+$test->is(scalar(%y), '2/8', 'scalar %y works');
+delete $y{'a'};
+$test->is($y{'a'}, 'b', '$y{a} is now b');
+$test->ok(exists $y{'a'} != 0, '$y{a} exists');
+$test->ok(exists $y{'b'} != 0, '$y{b} exists');
+$test->ok(exists $y{'c'} == 0, '$y{c} does not exist');
+delete $y{'b'};
+
+my ($key, $value) = each %y;
+
+$test->is($key, 'a', 'only key left is a');
+
+$y{'new'} = 'value';
+
+my ($key2, $value2) = (keys %y)[0];
+
+$test->is($key2, 'new', 'first set key is new');
+
+my @keys = sort keys %y;
+$test->is($keys[0], 'a', 'first key is a');
+$test->is($keys[1], 'new', 'second key is new');
+
+%y = ();
+my @keys2 = sort keys %y;
+$test->is(scalar @keys2, 1, 'only one key remains');
+
+=end btest(Basset::Container::Hash)
+
+=cut

@@ -1,6 +1,6 @@
 package Basset::Test;
 
-#Basset::Test, copyright and (c) 2004, 2005 James A Thomason III
+#Basset::Test, copyright and (c) 2004, 2005, 2006 James A Thomason III
 
 =pod
 
@@ -8,10 +8,10 @@ Inline testing for Basset modules. Or anyone else that wants it, for that matter
 
 =cut
 
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 use Basset::Object;
-@ISA = qw(Basset::Object);
+our @ISA = Basset::Object->pkg_for_type('object');
 
 use Test::Builder;
 
