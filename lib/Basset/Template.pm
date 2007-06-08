@@ -68,7 +68,9 @@ Damn near everything is configurable. Read on for more information.
 
 =cut
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
+
+use Cwd ();
 
 use Basset::Object;
 our @ISA = Basset::Object->pkg_for_type('object');
@@ -364,7 +366,7 @@ sub template {
 	my $tpl = $self->_template(@_);
 	my $root = $self->document_root;
 
-	if ($tpl =~ m!^/! && $tpl !~ m!^$root!) {
+	if (defined $tpl && defined $root && $tpl =~ m!^/! && $tpl !~ m!^$root!) {
 		my $full_path_to_tpl = $root . $tpl;
 		$full_path_to_tpl =~ s!//+!/!g;
 		return $full_path_to_tpl;
@@ -402,6 +404,8 @@ __PACKAGE__->add_attr('package');
 #This value is set by gen_file
 
 __PACKAGE__->add_attr('file');
+
+__PACKAGE__->add_attr('_preprocessed_inserted_file_cache');
 
 =pod
 
@@ -455,21 +459,28 @@ __PACKAGE__->add_attr('compress_whitespace');
 sub init {
 	return shift->SUPER::init(
 		{
-			'open_return_tag' => '<%',
-			'close_return_tag' => '%>',
-			'open_eval_tag' => '%%',
-			'close_eval_tag' => "\n",
-			'big_open_eval_tag' => '<code>',
-			'big_close_eval_tag' => "</code>",
-			'open_comment_tag' => '<#',
-			'close_comment_tag' => '#>',
-			'open_include_tag' => '<&',
-			'close_include_tag' => '&>',
-			'open_cached_include_tag' => '<&+',
-			'close_cached_include_tag' => '+&>',
-			'open_debug_tag' => '<debug>',
-			'close_debug_tag' => '</debug>',
-			'cache_all_inserts'	=> 0,
+			'open_return_tag'			=> '<%',
+			'close_return_tag'			=> '%>',
+			'open_eval_tag'				=> '%%',
+			'close_eval_tag'			=> "\n",
+			'big_open_eval_tag'			=> '<code>',
+			'big_close_eval_tag'		=> "</code>",
+			'open_comment_tag'			=> '<#',
+			'close_comment_tag'			=> '#>',
+			'open_include_tag'			=> '<&',
+			'close_include_tag'			=> '&>',
+			'open_cached_include_tag'	=> '<&+',
+			'close_cached_include_tag'	=> '+&>',
+			'open_debug_tag'			=> '<debug>',
+			'close_debug_tag'			=> '</debug>',
+			'cache_all_inserts'			=> 0,
+			
+			'caching'					=> 1,
+			'compress_whitespace'		=> 1,
+			'allows_debugging'			=> 1,
+			
+			'_full_file_path_cache'	=> {},
+			'_preprocessed_inserted_file_cache' => {},
 		},
 		@_
 	);
@@ -532,64 +543,55 @@ sub return_to_eval {
 	my $self	= shift;
 	my $val		= shift;
 
-	my $ein		= $self->open_eval_tag;
-	my $eout	= $self->close_eval_tag;
+	my $bein	= $self->big_open_eval_tag;
+	my $beout	= $self->big_close_eval_tag;
 
 	my $file	= $self->file;
 
 	my $subval	= $self->gen_file($file,1);
 
-	#$val =~ /^(.*;)?(?:return\s*)?([^;]+)$/s;
-
-	# yuck. As you can see from the earlier regex, this used to be a lot cleaner. But it would
-	# fail on one case - <% ';' %> (and its variants)
-	# $1 would contain (';) and $2 would contain (') instead of $2 correctly containing (';')
-	#
-	# So that's bad.
-	#
-	# Solution? Elaborate. Instead of allowing .*;, instead put in the complicated mess to
-	# allow for quoted semi colons. In short, it's as many non quotes as you want, followed by anything
-	# quoted that you'd like, followed by as many semi colons as you want. That all gets stuffed into $1
-	#
-	# But there was one more problem. <% 'foo'; %> Tacking on an unnecessary trailing semi-colon at the end
-	# that tosses things into $1 again. bad bad bad.
-	#
-	# That was originally handled by placing [^;] into $2, but we couldn't do that since ';' should be in $2
-	#
-	# So, it was changed to place .+ into $2, allowing semicolons AND a second regex was run first to strip off
-	# any trailing semicolons that there may be. Problem solved.
-
-	$val =~ s/;+\s*$//;
-	$val =~ /^((?:[^'"]+(?:(?:'(?:[^']|\\')+')|(?:"(?:[^"]|\\")+"))?)*;+)?(?:\s*return\s*)?(.+?)((?:\s+\|\s*[\w\s]+\s*)*)$/s;
+	$val =~ /^(.+?)									# first of all match, well, anything.
+				(									# finally, our optional pipe flags. A pipe, followed by an arbitrary word
+					(?:									
+						\|
+						\s*
+						\w+
+						(?:
+							\s*[\$%@&*\\]?\w+		# and an optional string of arguments, which may be words or variables
+						)*
+						\s*
+					)*
+				)
+			$/sx;
+	
+	my ($code, $pipes) = ($1, $2);
 	
 	my $pipe;
-
-	if (! defined $3) {
+	
+	if (defined $pipes) {
 		$pipe = $subval;
-	}
-	else {
-		my $all_pipes = $3;
-		$pipe = $subval;
-		while ($all_pipes =~ /\|\s*(\w+)((?:\s+\w+)*)/g) {
+		while ($pipes =~ /\|\s*(\w+)((?:\s*[\$%@&*\\]?\w+)*)/g) {
 			if (my $method = $self->pipe_flags->{$1}) {
 				my $args = '';
 				if (defined $2) {
-					$args = ", qw($2)";
+					my @params = split ' ', $2;
+					my @args = ();
+				
+					foreach my $param (@params) {
+						push @args, $param =~ /^\W/
+							? $param
+							: "q{$param}";
+					}
+				
+					$args = ', ' . join(', ', @args);
 				}
 				$pipe = "\$self->$method($pipe $args)";
 			}
 		}
 	}
 
-#	if (! defined $3) {
-#		$pipe = $subval;
-#	}
-#	elsif (my $method = $self->pipe_flags->{$3}) {
-#		$pipe = "\$self->$method($subval)";
-#	}
-
-	$val = $ein . (defined $1 ? $1 : '') . "{ $subval = $2; $file .= defined ($subval) ? $pipe : '';} $eout";
-
+	$val = $bein . " $subval = do { $code }; $file .= defined ($subval) ? $pipe : ''; " . $beout;
+	
 	return $val;
 };
 
@@ -602,15 +604,11 @@ sub debug_to_eval {
 
 	return '' unless $self->allows_debugging;
 
-	my $ein		= $self->open_eval_tag;
-	my $eout	= $self->close_eval_tag;
+	my $bein	= $self->big_open_eval_tag;
+	my $beout	= $self->big_close_eval_tag;
 
-	#$val =~ /^(.*;)?([^;]+)$/s;
-	$val =~ s/;+\s*$//;
-	$val =~ /^((?:[^'"]+(?:(?:'(?:[^']|\\')+')|(?:"(?:[^"]|\\")+"))?)*;+)?(?:\s*print\s+STDERR\s*)?(.+)$/s;
-
-	$val = $ein . (defined $1 ? $1 : '') . "print STDERR defined ($2) ? ($2) : ''; $eout";
-
+	$val = $bein . "{ my \@debug_val = do { $val }; print STDERR (\@debug_val ? \@debug_val : ''), \"\\n\"; };" . $beout;
+	
 	return $val;
 };
 
@@ -632,7 +630,6 @@ sub tokenize {
 	my $beout	= $self->big_close_eval_tag;
 
 	return 
-		#grep {! /^[^\S\r\n]+$/}
 		grep {defined $_ && length $_ > 0}
 		split(/(\Q$rin\E(?:.*?)\Q$rout\E)|(\Q$ein\E(?:.*?)\Q$eout\E)|(\Q$bein\E(?:.*?)\Q$beout\E)/s, $template);
 };
@@ -646,13 +643,14 @@ relative to the file system root
 
 =cut
 
+__PACKAGE__->add_attr('_full_file_path_cache');
+
 sub full_file_path {
 	my $self = shift;
 	my $file = shift or return $self->error("Cannot get file path w/o file", "BT-14");
 
-	my $pwd = `pwd` or return $self->error("Cannot pwd", "BT-09");
-	chomp($pwd);
-	$pwd .= '/' unless $pwd =~ /\/$/;
+	return $self->_full_file_path_cache->{$file} if defined $self->_full_file_path_cache->{$file};
+
 
 	if ($file =~ /^\//){
 		#do nothing, it's fine
@@ -663,16 +661,25 @@ sub full_file_path {
 		$file =~ s/^~\//$home/;
 	}
 	elsif ($file =~ /^\.[^.]/){
-		$file =~ s/^\.\//$pwd/;
+	
+		my $cwd = Cwd::getcwd() or return $self->error("Cannot getcwd", "BT-09");
+		$cwd .= '/' unless $cwd =~ /\/$/;
+	
+		$file =~ s/^\.\//$cwd/;
 		#return $file;
 	}
 	elsif ($file =~ /[a-zA-Z0-9_]/) {
-		$file = $pwd . $file;
+	
+		my $cwd = Cwd::getcwd() or return $self->error("Cannot getcwd", "BT-09");
+		$cwd .= '/' unless $cwd =~ /\/$/;
+	
+		$file = $cwd . $file;
 		#return $file;
 	}
 	else {
 		return $self->error("Cannot get full path to file '$file'", "BT-11");
 	}
+	
 	if ($file =~ /\.\./){
 		my @file = split(/\//, $file);
 		my @new = ();
@@ -686,6 +693,8 @@ sub full_file_path {
 		};
 		$file = join('/', @new);
 	};
+
+	$self->_full_file_path_cache->{$file} = $file;
 
 	return $file;
 };
@@ -722,6 +731,12 @@ sub insert_file {
 	my $bein	= $self->big_open_eval_tag;
 	my $beout	= $self->big_close_eval_tag;
 
+	my $f = $self->file;
+	
+	if ($file =~ s/\s+>>\s*(\$\w+)//) {
+		$f = $1;
+	}
+
 	$file =~ s/^\s+|\s+$//g;
 
 	my $args = undef;
@@ -731,8 +746,6 @@ sub insert_file {
 		$args =~ s/\\/\\\\/g;
 		$args =~ s/([{}])/\\$1/g;
 	};
-
-	my $f = $self->file;
 
 	my $return = undef;
 	if ($cached) {
@@ -747,21 +760,24 @@ sub insert_file {
 		my $embedded;
 		{
 			local $/ = undef;
-			open (EMBEDDED, $file);
-			$embedded = <EMBEDDED>;
-			close EMBEDDED;
+			my $filehandle = $self->gen_handle;
+			open ($filehandle, '<', $file) or return $self->error("Cannot open embedded templated $file : $!", "BT-06");
+			$embedded = <$filehandle>;
+			close $filehandle or return $self->error("Cannot close embedded template $file : $!", "BT-07");
 		}
 		
 		$return = "$bein { $beout" . $embedded . "$bein } $beout";
 		
 	}
 	elsif ($args){
-		$return	 = qq[$bein { my \$tpl = $pkg->new('template' => "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
-		$return	.= qq[$f .= \$tpl->process(eval q{$args}) || '[' . \$tpl->errstring . ']'; }; $beout];
+		$return	 = qq[$bein { local \$@ = undef; my \$tpl = \$self->_preprocessed_inserted_file_cache->{"$file"} || $pkg->new('template' => "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
+		$return .= qq[\$self->_preprocessed_inserted_file_cache->{"$file"} = \$tpl;];
+		$return	.= qq[my \$hash = eval q{$args}; if (\$@) { $f .= '[' . \$@ . ' in subtemplate $file]' } else {$f .= \$tpl->process(\$hash) || '[' . \$tpl->errstring . ' in subtemplate $file]'; } }; $beout];
 	}
 	else {
-		$return	 = qq[$bein { my \$tpl = $pkg->new('template' => "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
-		$return	.= qq[$f .= eval (\$tpl->preprocess) || '[' . \$tpl->errstring . ']'; }; $beout];
+		$return	 = qq[$bein { local \$@ = undef; my \$tpl = \$self->_preprocessed_inserted_file_cache->{"$file"} || $pkg->new('template' => "$file", caching => ] . $self->caching . ', compress_whitespace => ' . $self->compress_whitespace . ');';
+		$return .= qq[\$self->_preprocessed_inserted_file_cache->{"$file"} = \$tpl;];
+		$return	.= qq[$f .= eval (\$tpl->preprocess) || '[' . \$tpl->errstring . ':(' . \$@ . ') in subtemplate $file]'; }; $beout];
 	};
 
 	return $return;
@@ -838,22 +854,17 @@ sub preprocess {
 			if (-e $cache_file && (-M $filename >= -M $cache_file)){
 				$filename = $cache_file;
 				$using_cache = 1;
-			#	$self->caching(1);	#we've used the cache, hence we're caching.
 			};
 
 			# load up the file. We'll either be loading the template from the cache
 			# if the check up there succeeded, or we'll be loading the original template
 			my $filehandle = $self->gen_handle;
-			open ($filehandle, $filename) or return $self->error("Cannot open template $template : $!", "BT-06");
+			open ($filehandle, '<', $filename) or return $self->error("Cannot open template $template : $!", "BT-06");
 			local $/ = undef;
 			$template = <$filehandle>;
 			close $filehandle or return $self->error("Cannot close template $template : $!", "BT-07");
 
 			#return now if we loaded this thing out of the cache
-		#	my $file	= $self->file;
-		#	$template =~ s/print OUT/\$$file .=/g;
-			#$template .= ";return \$$file";
-			#print "TEMPLATE IS $template\n";
 			$self->_current_template($passed_template);
 			return $self->preprocessed_template($template) if $using_cache;
 		};
@@ -884,20 +895,19 @@ sub preprocess {
 	my $file	= $self->file;
 
 	#we need the special extra case of the while loop here to handled nested cached embedded templates.
-	$template =~ s/\Q$ciin\E(.*?)\Q$ciout\E/$self->insert_file($1, 'cached')/ges while $template =~ /\Q$ciin\E(.*?)\Q$ciout\E/;
-	$template =~ s/\Q$iin\E(.*?)\Q$iout\E/$self->insert_file($1, $self->cache_all_inserts)/ges while $template =~ /\Q$iin\E(.*?)\Q$iout\E/;
+	$template =~ s/\Q$ciin\E(.*?)\Q$ciout\E/$self->insert_file($1, 'cached')/ges while $template =~ /\Q$ciin\E(.*?)\Q$ciout\E/s;
+	$template =~ s/\Q$iin\E(.*?)\Q$iout\E/$self->insert_file($1, $self->cache_all_inserts)/ges while $template =~ /\Q$iin\E(.*?)\Q$iout\E/s;
 
-	$template =~ s/\Q$cin\E(.*?)\Q$cout\E//gs if defined $template;
+	if (defined $template) {
+		$template =~ s/\Q$cin\E(.*?)\Q$cout\E//gs;
 
+		$template =~ s/\Q$rin\E(.*?)\Q$rout\E/$self->return_to_eval($1)/gse;
 
-#	$template =~ s/$cin(.*?)$cout//gs if defined $template;
+		$template =~ s/\Q$din\E(.*?)\Q$dout\E/$self->debug_to_eval($1)/gse;
 
-	$template =~ s/\Q$rin\E(.*?)\Q$rout\E/$self->return_to_eval($1)/gse if defined $template;
-
-	$template =~ s/\Q$din\E(.*?)\Q$dout\E/$self->debug_to_eval($1)/gse if defined $template;
-
-	$template =~ s/\Q$eout\E(\s+)\Q$ein\E/$eout$ein/g if defined $template;
-	$template =~ s/\Q$beout\E(\s+)\Q$bein\E/$beout$bein/g if defined $template;
+		$template =~ s/\Q$eout\E(\s+)\Q$ein\E/$eout$ein/g;
+		$template =~ s/\Q$beout\E(\s+)\Q$bein\E/$beout$bein/g;
+	}
 
 
 
@@ -923,7 +933,6 @@ sub preprocess {
 		}
 		else {
 			$_ =~ s/([{}])/\\$1/g;
-			#$_ =~ s/[^\S\r\n]+$//g;
 			if ($block && /^\s+$/){
 				$_ = '';
 				next;
@@ -966,7 +975,7 @@ sub preprocess {
 				};
 			};
 			my $cachehandle = $self->gen_handle;
-			if (open ($cachehandle, ">$cache_file")) {
+			if (open ($cachehandle, '>', $cache_file)) {
 				print $cachehandle $template;
 				close ($cachehandle) or return $self->error("Cannot close cache file ($cache_file) - ($!)", "BT-16");
 			}
@@ -1059,9 +1068,9 @@ sub process {
 	#okay, now if we've been passed in a file (not a template reference), then
 	#we can try to get away with using the cached version
 
+	my $tplpath = ref $template ? 'Inline template' : $template;
+
 	$template = $self->preprocess($template) or return;
-
-
 
 	$vars ||= {};	#the vars will just be an empty hash if it's not defined
 
@@ -1098,18 +1107,18 @@ sub process {
 		};
 	};
 
+	local $@ = undef;
 	my $out = undef;
 	my $ec = undef;
 
 	eval qq{
-		no strict; #bleh
 		package $pkg;
 		local \$@ = undef;
 		\$out = eval \$template;
 		\$ec = \$@ if \$@;
 	};
 
-	return $out || $self->error("Evaluation error: $ec", "BT-05");
+	return $out || $self->error("Evaluation error in template $tplpath: $ec", "BT-05");
 
 };
 
